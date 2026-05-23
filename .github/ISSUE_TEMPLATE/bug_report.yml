@@ -1,0 +1,33 @@
+name: Bug report
+description: Something isn't working
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect to...
+        2. Open...
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: e.g. 1.2.0 or "latest" Docker image
+    validations:
+      required: true
+  - type: input
+    id: mongodb-version
+    attributes:
+      label: MongoDB version
+      placeholder: e.g. 7.0
