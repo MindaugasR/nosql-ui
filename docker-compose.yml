@@ -1,0 +1,12 @@
+services:
+  nosql-manager:
+    build: .
+    ports:
+      - "8080:3001"
+    environment:
+      # Optional: pre-configure connections via ENV
+      MONGODB_URI: mongodb://localhost:27017
+      # MONGODB_LABEL: Local MongoDB
+      # CASSANDRA_CONTACT_POINTS: cassandra:9042
+      # COUCHDB_URL: http://couchdb:5984
+    restart: unless-stopped
