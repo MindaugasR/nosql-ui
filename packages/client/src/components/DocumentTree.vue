@@ -417,6 +417,21 @@ const hoveredPath = ref<string | null>(null);
               class="absolute top-0 left-0 w-2 h-2 bg-orange-400 pointer-events-none"
               style="clip-path: polygon(0 0, 100% 0, 0 100%)"
             />
+            <!-- Delete button (left, always reserved space, fade in on hover) -->
+            <button
+              v-if="createMode && row.node.key !== '_id'"
+              class="shrink-0 w-5 h-5 flex items-center justify-center rounded transition-colors"
+              :class="
+                hoveredPath === row.node.path
+                  ? 'text-error/60 hover:text-error hover:bg-error/10'
+                  : 'text-transparent pointer-events-none'
+              "
+              title="Remove field"
+              @click.stop="deleteField(row.node.path)"
+            >
+              <span class="material-symbols-outlined text-[13px]">close</span>
+            </button>
+            <span v-else-if="createMode" class="w-5 shrink-0" />
             <button
               v-if="row.node.hasChildren"
               class="w-4 h-4 flex items-center justify-center text-on-surface-variant hover:text-on-surface shrink-0"
@@ -438,15 +453,6 @@ const hoveredPath = ref<string | null>(null);
               "
               >{{ row.node.key }}</span
             >
-            <!-- Delete button (createMode only) -->
-            <button
-              v-if="createMode && row.node.key !== '_id' && hoveredPath === row.node.path"
-              class="ml-auto shrink-0 w-5 h-5 flex items-center justify-center rounded text-on-surface-variant/40 hover:text-error hover:bg-error/10 transition-colors"
-              title="Remove field"
-              @click.stop="deleteField(row.node.path)"
-            >
-              <span class="material-symbols-outlined text-[13px]">close</span>
-            </button>
           </div>
 
           <!-- Value -->
@@ -603,12 +609,14 @@ const hoveredPath = ref<string | null>(null);
                 </template>
                 <span v-else class="flex-1" />
 
-                <!-- Type selector -->
-                <SelectBox
-                  :model-value="newFieldType"
-                  :options="BSON_TYPES"
-                  @update:model-value="onNewTypeChange($event)"
-                />
+                <!-- Type selector — fixed width so value input gets remaining space -->
+                <div class="w-24 shrink-0">
+                  <SelectBox
+                    :model-value="newFieldType"
+                    :options="BSON_TYPES"
+                    @update:model-value="onNewTypeChange($event)"
+                  />
+                </div>
 
                 <button
                   class="w-5 h-5 flex items-center justify-center rounded text-primary hover:bg-primary/10 transition-colors shrink-0"
