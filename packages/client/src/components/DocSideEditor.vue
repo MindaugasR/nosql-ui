@@ -12,6 +12,7 @@
           v-for="(entry, idx) in stack"
           :key="entry.id"
           class="fixed bottom-0 flex flex-col w-[42vw] bg-surface-container-low border-l border-outline-variant shadow-2xl"
+          :data-final-transform="`translateX(${-(stack.length - 1 - idx) * 50}px)`"
           :style="{
             top: '44px',
             right: '0',
@@ -229,24 +230,26 @@ const discardAndClose = () => {
 };
 
 const onPanelEnter = (el: Element, done: () => void) => {
-  const finalTransform = (el as HTMLElement).style.transform;
-  const anim = el.animate(
-    [
-      { transform: "translateX(100%)" },
-      { transform: finalTransform || "translateX(0)" },
-    ],
-    { duration: 220, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
-  );
-  anim.onfinish = done;
+  const htmlEl = el as HTMLElement;
+  htmlEl.style.transform = "translateX(100%)";
+  requestAnimationFrame(() => {
+    const finalTransform = htmlEl.dataset.finalTransform ?? "translateX(0)";
+    const anim = htmlEl.animate(
+      [{ transform: "translateX(100%)" }, { transform: finalTransform }],
+      { duration: 220, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+    );
+    anim.onfinish = () => {
+      htmlEl.style.transform = finalTransform;
+      done();
+    };
+  });
 };
 </script>
 
 <style scoped>
-.editor-fade-enter-active,
 .editor-fade-leave-active {
   transition: opacity 0.15s ease;
 }
-.editor-fade-enter-from,
 .editor-fade-leave-to {
   opacity: 0;
 }
