@@ -211,6 +211,27 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
     }
   })
 
+  // Insert many documents
+  app.post<{
+    Querystring: { uri: string }
+    Params: { db: string; collection: string }
+    Body: { documents: Record<string, unknown>[] }
+  }>('/:db/:collection/insertMany', async (req, reply) => {
+    const { uri } = req.query
+    const { db, collection } = req.params
+    if (!uri) return reply.status(400).send({ error: 'uri required' })
+    const docs = req.body?.documents
+    if (!Array.isArray(docs) || docs.length === 0)
+      return reply.status(400).send({ error: 'documents array required' })
+    try {
+      const client = getMongoClient(uri)
+      const result = await client.db(db).collection(collection).insertMany(docs)
+      return { insertedCount: result.insertedCount }
+    } catch (err: any) {
+      return reply.status(503).send({ error: err.message })
+    }
+  })
+
   // Update document by _id
   app.put<{
     Querystring: { uri: string }

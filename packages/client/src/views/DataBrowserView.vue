@@ -121,10 +121,21 @@
     </router-link>
 
     <button
-      class="flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-semibold hover:opacity-90 transition-opacity shrink-0 mt-1"
+      :disabled="!collection"
+      class="flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-semibold hover:opacity-90 transition-opacity shrink-0 mt-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+      @click="showCreate = true"
     >
       <span class="material-symbols-outlined text-[15px]">add</span>
       Add
+    </button>
+
+    <button
+      :disabled="!collection"
+      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant text-body-sm font-semibold text-on-surface-variant hover:border-primary hover:text-on-surface transition-colors shrink-0 mt-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+      @click="showImport = true"
+    >
+      <span class="material-symbols-outlined text-[15px]">upload</span>
+      Import
     </button>
   </div>
 
@@ -183,6 +194,20 @@
     :loading="isLoading"
     :collection="collection"
   />
+
+  <CreateDocumentModal
+    :open="showCreate"
+    :collection="collection?.name ?? ''"
+    @close="showCreate = false"
+    @inserted="onRefresh"
+  />
+
+  <ImportDocumentsModal
+    :open="showImport"
+    :collection="collection?.name ?? ''"
+    @close="showImport = false"
+    @imported="onRefresh"
+  />
 </template>
 
 <script setup lang="ts">
@@ -199,6 +224,8 @@ import DocumentsTable from "@/components/DocumentsTable.vue";
 import QueryBuilderPanel from "@/components/QueryBuilderPanel.vue";
 import IndexesPanel from "@/components/IndexesPanel.vue";
 import Badge from "@/components/Badge.vue";
+import CreateDocumentModal from "@/components/CreateDocumentModal.vue";
+import ImportDocumentsModal from "@/components/ImportDocumentsModal.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -227,6 +254,8 @@ const database = computed(() => databaseStore.database());
 const isLoading = ref(false);
 const showBuilder = ref(false);
 const showIndexes = ref(false);
+const showCreate = ref(false);
+const showImport = ref(false);
 const error = ref<string | null>(null);
 
 const limit = ref(PageLimit.value.at(0)?.value ?? DEFAULT_LIMIT);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from "vue";
+import { ref, computed, watch, onUnmounted, nextTick } from "vue";
 import SelectBox from "./SelectBox.vue";
 
 export type BsonType =
@@ -24,6 +24,20 @@ interface TreeNode {
   childrenCount: number;
 }
 
+interface NodeRow {
+  kind: "node";
+  node: TreeNode;
+}
+
+interface AddRow {
+  kind: "add";
+  parentPath: string;
+  isArray: boolean;
+  depth: number;
+}
+
+type FlatRow = NodeRow | AddRow;
+
 const BSON_TYPES: { value: BsonType; label: string; color: string }[] = [
   { value: "string", label: "String", color: "text-green-400" },
   { value: "int32", label: "Int32", color: "text-blue-400" },
@@ -40,6 +54,7 @@ const BSON_TYPES: { value: BsonType; label: string; color: string }[] = [
 const props = defineProps<{
   document: Record<string, unknown>;
   readonly?: boolean;
+  createMode?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -52,7 +67,7 @@ const localDoc = ref<Record<string, unknown>>({});
 const changedPaths = ref(new Set<string>());
 
 watch(
-  () => (props.document as Record<string, unknown>)._id,
+  () => props.createMode ? undefined : (props.document as Record<string, unknown>)._id,
   () => {
     localDoc.value = JSON.parse(JSON.stringify(props.document));
     expanded.value = new Set();
@@ -78,17 +93,17 @@ const detectType = (value: unknown): BsonType => {
   return "string";
 };
 
-const flattenNode = (
+const flattenRows = (
   obj: unknown,
   parentPath: string,
   depth: number,
-): TreeNode[] => {
+): FlatRow[] => {
   if (obj === null || typeof obj !== "object") return [];
   const entries: [string, unknown][] = Array.isArray(obj)
     ? obj.map((v, i) => [String(i), v])
     : Object.entries(obj as Record<string, unknown>);
 
-  const nodes: TreeNode[] = [];
+  const rows: FlatRow[] = [];
   for (const [key, value] of entries) {
     const path = parentPath ? `${parentPath}.${key}` : key;
     const type = detectType(value);
@@ -99,15 +114,24 @@ const flattenNode = (
         : Object.keys(value as object).length
       : 0;
 
-    nodes.push({ path, key, value, type, depth, hasChildren, childrenCount });
+    const node: TreeNode = { path, key, value, type, depth, hasChildren, childrenCount };
+    rows.push({ kind: "node", node });
     if (hasChildren && expanded.value.has(path)) {
-      nodes.push(...flattenNode(value, path, depth + 1));
+      rows.push(...flattenRows(value, path, depth + 1));
     }
   }
-  return nodes;
+
+  if (props.createMode) {
+    rows.push({ kind: "add", parentPath, isArray: Array.isArray(obj), depth });
+  }
+
+  return rows;
 };
 
-const nodes = computed(() => flattenNode(localDoc.value, "", 0));
+const rows = computed<FlatRow[]>(() => flattenRows(localDoc.value, "", 0));
+
+const rowKey = (row: FlatRow): string =>
+  row.kind === "node" ? `n:${row.node.path}` : `a:${row.parentPath}`;
 
 const toggle = (path: string) => {
   const next = new Set(expanded.value);
@@ -247,12 +271,90 @@ const cancelEdit = () => {
   window.removeEventListener("mousedown", onOutsideMouseDown);
 };
 
+// ── createMode: add / delete fields ──────────────────────────────────────────
+
+const addingAtPath = ref<string | null>(null);
+const newFieldKey = ref("");
+const newFieldType = ref<BsonType>("string");
+const addKeyInputEl = ref<HTMLInputElement | null>(null);
+
+const defaultValue = (type: BsonType): unknown => {
+  if (type === "string") return "";
+  if (type === "int32" || type === "int64") return 0;
+  if (type === "double") return 0.0;
+  if (type === "boolean") return false;
+  if (type === "date") return new Date().toISOString();
+  if (type === "objectId")
+    return Array.from(crypto.getRandomValues(new Uint8Array(12)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  if (type === "null") return null;
+  if (type === "object") return {};
+  if (type === "array") return [];
+  return "";
+};
+
+const startAddField = async (parentPath: string, isArray: boolean) => {
+  addingAtPath.value = parentPath;
+  newFieldKey.value = "";
+  newFieldType.value = "string";
+  if (!isArray) {
+    await nextTick();
+    addKeyInputEl.value?.focus();
+  }
+};
+
+const commitAddField = () => {
+  if (addingAtPath.value === null) return;
+
+  const clone = JSON.parse(JSON.stringify(localDoc.value));
+  const parts = addingAtPath.value ? addingAtPath.value.split(".") : [];
+  let target: any = clone;
+  for (const part of parts) target = target[part];
+
+  if (Array.isArray(target)) {
+    target.push(defaultValue(newFieldType.value));
+  } else {
+    const key = newFieldKey.value.trim();
+    if (!key || key in target) return;
+    target[key] = defaultValue(newFieldType.value);
+    if (newFieldType.value === "object" || newFieldType.value === "array") {
+      const newPath = addingAtPath.value
+        ? `${addingAtPath.value}.${key}`
+        : key;
+      expanded.value = new Set([...expanded.value, newPath]);
+    }
+  }
+
+  localDoc.value = clone;
+  addingAtPath.value = null;
+  emit("update:document", clone);
+};
+
+const cancelAddField = () => {
+  addingAtPath.value = null;
+};
+
+const deleteField = (path: string) => {
+  const parts = path.split(".");
+  const clone = JSON.parse(JSON.stringify(localDoc.value));
+  let cur: any = clone;
+  for (let i = 0; i < parts.length - 1; i++) cur = cur[parts[i]];
+  const lastKey = parts[parts.length - 1];
+  if (Array.isArray(cur)) {
+    cur.splice(Number(lastKey), 1);
+  } else {
+    delete cur[lastKey];
+  }
+  localDoc.value = clone;
+  emit("update:document", clone);
+};
+
 const hoveredPath = ref<string | null>(null);
 </script>
 
 <template>
   <div class="font-mono text-code-sm select-none">
-    <!-- Single grid — all rows share column widths; Field=max-content, Value=1fr, Type=100px -->
     <div class="grid" style="grid-template-columns: max-content 1fr 100px">
       <!-- Header cells -->
       <div
@@ -271,142 +373,204 @@ const hoveredPath = ref<string | null>(null);
         Type
       </div>
 
-      <!-- Row cells (3 siblings per node, direct grid children) -->
-      <template v-for="node in nodes" :key="node.path">
-        <!-- Field -->
-        <div
-          class="relative flex items-center gap-0.5 py-1.5 min-w-0 pr-3 border-b border-outline-variant/20 transition-colors"
-          :class="hoveredPath === node.path ? 'bg-surface-variant/20' : ''"
-          :style="{ paddingLeft: `${node.depth * 14 + 10}px` }"
-          @mouseenter="hoveredPath = node.path"
-          @mouseleave="hoveredPath = null"
-        >
-          <span
-            v-if="!readonly && changedPaths.has(node.path)"
-            class="absolute top-0 left-0 w-2 h-2 bg-orange-400 pointer-events-none"
-            style="clip-path: polygon(0 0, 100% 0, 0 100%)"
-          />
-          <button
-            v-if="node.hasChildren"
-            class="w-4 h-4 flex items-center justify-center text-on-surface-variant hover:text-on-surface shrink-0"
-            @click="toggle(node.path)"
+      <template v-for="row in rows" :key="rowKey(row)">
+        <!-- ── Regular field row (3 cells) ── -->
+        <template v-if="row.kind === 'node'">
+          <!-- Field -->
+          <div
+            class="relative flex items-center gap-0.5 py-1.5 min-w-0 pr-3 border-b border-outline-variant/20 transition-colors"
+            :class="hoveredPath === row.node.path ? 'bg-surface-variant/20' : ''"
+            :style="{ paddingLeft: `${row.node.depth * 14 + 10}px` }"
+            @mouseenter="hoveredPath = row.node.path"
+            @mouseleave="hoveredPath = null"
           >
             <span
-              class="material-symbols-outlined text-[13px] transition-transform duration-150"
-              :class="expanded.has(node.path) ? 'rotate-90' : ''"
-              >chevron_right</span
-            >
-          </button>
-          <span v-else class="w-4 shrink-0" />
-          <span
-            class="whitespace-nowrap"
-            :class="
-              node.key === '_id'
-                ? 'text-on-surface-variant/70'
-                : 'text-on-surface'
-            "
-            >{{ node.key }}</span
-          >
-        </div>
-
-        <!-- Value -->
-        <div
-          class="flex items-center gap-1 py-1.5 px-2 min-w-0 border-b border-outline-variant/20 transition-colors"
-          :class="hoveredPath === node.path ? 'bg-surface-variant/20' : ''"
-          :data-editing-cell="editingPath === node.path ? '' : undefined"
-          @mouseenter="hoveredPath = node.path"
-          @mouseleave="hoveredPath = null"
-          @dblclick="startEdit(node)"
-        >
-          <template v-if="editingPath === node.path">
-            <input
-              v-if="node.type === 'date'"
-              type="datetime-local"
-              :value="editingValue"
-              step="1"
-              class="w-full bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5"
-              autofocus
-              @input="editingValue = ($event.target as HTMLInputElement).value"
-              @keydown.enter="commitEdit(node)"
-              @keydown.escape="cancelEdit"
+              v-if="!readonly && changedPaths.has(row.node.path)"
+              class="absolute top-0 left-0 w-2 h-2 bg-orange-400 pointer-events-none"
+              style="clip-path: polygon(0 0, 100% 0, 0 100%)"
             />
-            <input
-              v-else-if="node.type === 'int32' || node.type === 'int64' || node.type === 'double'"
-              type="number"
-              :step="node.type === 'double' ? 'any' : '1'"
-              :value="editingValue"
-              class="w-full bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              autofocus
-              @input="editingValue = ($event.target as HTMLInputElement).value"
-              @keydown.enter="commitEdit(node)"
-              @keydown.escape="cancelEdit"
-              @blur="commitEdit(node)"
-            />
-            <input
-              v-else
-              type="text"
-              :value="editingValue"
-              class="w-full bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5"
-              autofocus
-              @input="editingValue = ($event.target as HTMLInputElement).value"
-              @keydown.enter="commitEdit(node)"
-              @keydown.escape="cancelEdit"
-              @blur="commitEdit(node)"
-            />
-          </template>
-          <template v-else>
-            <span
-              class="truncate min-w-0"
-              :class="[
-                typeColor(node.type),
-                node.hasChildren || node.key === '_id' || node.type === 'null'
-                  ? ''
-                  : node.type === 'boolean'
-                    ? 'cursor-pointer'
-                    : 'cursor-text',
-                node.type === 'null' ? 'italic opacity-40' : '',
-                node.hasChildren ? 'opacity-50' : '',
-                !node.hasChildren && node.key !== '_id' && node.type !== 'null' && !formatValue(node)
-                  ? 'italic opacity-30'
-                  : '',
-              ]"
-              >{{ formatValue(node) || (node.type === 'string' ? '(empty)' : '') }}</span
-            >
             <button
-              v-if="node.type === 'objectId' && node.key !== '_id'"
-              class="shrink-0 text-purple-400 hover:text-purple-300 opacity-40 hover:opacity-100 transition-opacity ml-0.5"
-              title="Open linked document"
-              @click.stop="emit('link-click', String(node.value))"
-              @dblclick.stop
+              v-if="row.node.hasChildren"
+              class="w-4 h-4 flex items-center justify-center text-on-surface-variant hover:text-on-surface shrink-0"
+              @click="toggle(row.node.path)"
             >
               <span
-                class="material-symbols-outlined text-sm! hover:cursor-pointer"
+                class="material-symbols-outlined text-[13px] transition-transform duration-150"
+                :class="expanded.has(row.node.path) ? 'rotate-90' : ''"
+                >chevron_right</span
               >
-                open_in_new
-              </span>
             </button>
-          </template>
-        </div>
+            <span v-else class="w-4 shrink-0" />
+            <span
+              class="whitespace-nowrap"
+              :class="
+                row.node.key === '_id'
+                  ? 'text-on-surface-variant/70'
+                  : 'text-on-surface'
+              "
+              >{{ row.node.key }}</span
+            >
+            <!-- Delete button (createMode only) -->
+            <button
+              v-if="createMode && row.node.key !== '_id' && hoveredPath === row.node.path"
+              class="ml-auto shrink-0 w-5 h-5 flex items-center justify-center rounded text-on-surface-variant/40 hover:text-error hover:bg-error/10 transition-colors"
+              title="Remove field"
+              @click.stop="deleteField(row.node.path)"
+            >
+              <span class="material-symbols-outlined text-[13px]">close</span>
+            </button>
+          </div>
 
-        <!-- Type -->
-        <div
-          class="flex items-center py-1 px-1 border-b border-outline-variant/20 transition-colors"
-          :class="hoveredPath === node.path ? 'bg-surface-variant/20' : ''"
-          @mouseenter="hoveredPath = node.path"
-          @mouseleave="hoveredPath = null"
-        >
-          <SelectBox
-            :model-value="node.type"
-            :options="BSON_TYPES"
-            :disabled="readonly || node.key === '_id'"
-            @update:model-value="changeType(node, $event)"
-          />
-        </div>
+          <!-- Value -->
+          <div
+            class="flex items-center gap-1 py-1.5 px-2 min-w-0 border-b border-outline-variant/20 transition-colors"
+            :class="hoveredPath === row.node.path ? 'bg-surface-variant/20' : ''"
+            :data-editing-cell="editingPath === row.node.path ? '' : undefined"
+            @mouseenter="hoveredPath = row.node.path"
+            @mouseleave="hoveredPath = null"
+            @dblclick="startEdit(row.node)"
+          >
+            <template v-if="editingPath === row.node.path">
+              <input
+                v-if="row.node.type === 'date'"
+                type="datetime-local"
+                :value="editingValue"
+                step="1"
+                class="w-full bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5"
+                autofocus
+                @input="editingValue = ($event.target as HTMLInputElement).value"
+                @keydown.enter="commitEdit(row.node)"
+                @keydown.escape="cancelEdit"
+                @blur="commitEdit(row.node)"
+              />
+              <input
+                v-else-if="row.node.type === 'int32' || row.node.type === 'int64' || row.node.type === 'double'"
+                type="number"
+                :step="row.node.type === 'double' ? 'any' : '1'"
+                :value="editingValue"
+                class="w-full bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                autofocus
+                @input="editingValue = ($event.target as HTMLInputElement).value"
+                @keydown.enter="commitEdit(row.node)"
+                @keydown.escape="cancelEdit"
+                @blur="commitEdit(row.node)"
+              />
+              <input
+                v-else
+                type="text"
+                :value="editingValue"
+                class="w-full bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5"
+                autofocus
+                @input="editingValue = ($event.target as HTMLInputElement).value"
+                @keydown.enter="commitEdit(row.node)"
+                @keydown.escape="cancelEdit"
+                @blur="commitEdit(row.node)"
+              />
+            </template>
+            <template v-else>
+              <span
+                class="truncate min-w-0"
+                :class="[
+                  typeColor(row.node.type),
+                  row.node.hasChildren || row.node.key === '_id' || row.node.type === 'null'
+                    ? ''
+                    : row.node.type === 'boolean'
+                      ? 'cursor-pointer'
+                      : 'cursor-text',
+                  row.node.type === 'null' ? 'italic opacity-40' : '',
+                  row.node.hasChildren ? 'opacity-50' : '',
+                  !row.node.hasChildren && row.node.key !== '_id' && row.node.type !== 'null' && !formatValue(row.node)
+                    ? 'italic opacity-30'
+                    : '',
+                ]"
+                >{{ formatValue(row.node) || (row.node.type === 'string' ? '(empty)' : '') }}</span
+              >
+              <button
+                v-if="row.node.type === 'objectId' && row.node.key !== '_id'"
+                class="shrink-0 text-purple-400 hover:text-purple-300 opacity-40 hover:opacity-100 transition-opacity ml-0.5"
+                title="Open linked document"
+                @click.stop="emit('link-click', String(row.node.value))"
+                @dblclick.stop
+              >
+                <span class="material-symbols-outlined text-sm! hover:cursor-pointer">
+                  open_in_new
+                </span>
+              </button>
+            </template>
+          </div>
+
+          <!-- Type -->
+          <div
+            class="flex items-center py-1 px-1 border-b border-outline-variant/20 transition-colors"
+            :class="hoveredPath === row.node.path ? 'bg-surface-variant/20' : ''"
+            @mouseenter="hoveredPath = row.node.path"
+            @mouseleave="hoveredPath = null"
+          >
+            <SelectBox
+              :model-value="row.node.type"
+              :options="BSON_TYPES"
+              :disabled="readonly || row.node.key === '_id'"
+              @update:model-value="changeType(row.node, $event)"
+            />
+          </div>
+        </template>
+
+        <!-- ── Add field row (full-width, createMode only) ── -->
+        <template v-else-if="row.kind === 'add'">
+          <div
+            class="border-b border-outline-variant/10 py-1 px-2"
+            style="grid-column: 1 / -1"
+            :style="{ paddingLeft: `${row.depth * 14 + 10}px` }"
+          >
+            <template v-if="addingAtPath === row.parentPath">
+              <div class="flex items-center gap-1.5">
+                <input
+                  v-if="!row.isArray"
+                  ref="addKeyInputEl"
+                  v-model="newFieldKey"
+                  type="text"
+                  placeholder="field name"
+                  class="w-28 bg-primary/5 border-b border-primary outline-none text-on-surface px-1 font-mono text-code-sm"
+                  @keydown.enter="commitAddField"
+                  @keydown.escape="cancelAddField"
+                />
+                <SelectBox
+                  :model-value="newFieldType"
+                  :options="BSON_TYPES"
+                  @update:model-value="newFieldType = $event"
+                />
+                <button
+                  class="w-5 h-5 flex items-center justify-center rounded text-primary hover:bg-primary/10 transition-colors"
+                  title="Add field"
+                  @click="commitAddField"
+                >
+                  <span class="material-symbols-outlined text-[14px]">check</span>
+                </button>
+                <button
+                  class="w-5 h-5 flex items-center justify-center rounded text-on-surface-variant/50 hover:text-on-surface-variant hover:bg-surface-variant transition-colors"
+                  title="Cancel"
+                  @click="cancelAddField"
+                >
+                  <span class="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <button
+                class="flex items-center gap-1 text-on-surface-variant/40 hover:text-primary transition-colors text-[11px]"
+                @click="startAddField(row.parentPath, row.isArray)"
+              >
+                <span class="material-symbols-outlined text-[13px]">add</span>
+                {{ row.isArray ? "Add item" : "Add field" }}
+              </button>
+            </template>
+          </div>
+        </template>
       </template>
     </div>
 
     <div
-      v-if="nodes.length === 0"
+      v-if="rows.length === 0"
       class="px-4 py-6 text-center text-on-surface-variant opacity-50 text-body-sm"
     >
       Empty document

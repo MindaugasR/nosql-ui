@@ -80,6 +80,17 @@ export const api = {
         { method: "POST", body: JSON.stringify(doc) },
       ),
 
+    insertMany: (
+      conn: Connection,
+      db: string,
+      collection: string,
+      documents: Record<string, unknown>[],
+    ) =>
+      request<{ insertedCount: number }>(
+        `/mongo/${encodeURIComponent(db)}/${encodeURIComponent(collection)}/insertMany?uri=${encodeURIComponent(conn.uri)}`,
+        { method: "POST", body: JSON.stringify({ documents }) },
+      ),
+
     update: (
       conn: Connection,
       db: Database,
