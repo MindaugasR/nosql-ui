@@ -116,6 +116,7 @@ import DocumentTree from "./DocumentTree.vue";
 import { api } from "@/lib/api";
 import { useConnectionsStore } from "@/stores/connections";
 import { useDatabaseStore } from "@/stores/useDatabaseStore";
+import { useDocumentStore } from "@/stores/useDocumentStore";
 
 const props = defineProps<{
   open: boolean;
@@ -129,6 +130,7 @@ const emit = defineEmits<{
 
 const connectionStore = useConnectionsStore();
 const databaseStore = useDatabaseStore();
+const documentStore = useDocumentStore();
 
 const doc = ref<Record<string, unknown>>({});
 const inserting = ref(false);
@@ -137,11 +139,49 @@ const showCloseConfirm = ref(false);
 
 const isDirty = computed(() => Object.keys(doc.value).length > 0);
 
+function fieldTypeToDefault(type: string): unknown {
+  switch (type.toLowerCase()) {
+    case "string": return "";
+    case "int": case "int32": case "int64": return 0;
+    case "double": return 0.0;
+    case "boolean": return false;
+    case "date": return new Date().toISOString();
+    case "objectid": return "";
+    case "null": return null;
+    case "object": return {};
+    case "array": return [];
+    default: return "";
+  }
+}
+
+function buildDocFromFieldTypes(
+  fieldTypes: Record<string, string>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [path, type] of Object.entries(fieldTypes)) {
+    if (path === "_id") continue;
+    const parts = path.split(".");
+    let cur: any = result;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (typeof cur[parts[i]] !== "object" || cur[parts[i]] === null) {
+        cur[parts[i]] = {};
+      }
+      cur = cur[parts[i]];
+    }
+    const last = parts[parts.length - 1];
+    if (!(last in cur)) {
+      cur[last] = fieldTypeToDefault(type);
+    }
+  }
+  return result;
+}
+
 watch(
   () => props.open,
   (open) => {
     if (open) {
-      doc.value = {};
+      const fieldTypes = documentStore.fieldTypes();
+      doc.value = buildDocFromFieldTypes(fieldTypes);
       inserting.value = false;
       insertError.value = null;
       showCloseConfirm.value = false;

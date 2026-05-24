@@ -276,28 +276,56 @@ const cancelEdit = () => {
 const addingAtPath = ref<string | null>(null);
 const newFieldKey = ref("");
 const newFieldType = ref<BsonType>("string");
+const newFieldRawValue = ref("");
+const newFieldBoolValue = ref(false);
 const addKeyInputEl = ref<HTMLInputElement | null>(null);
 
-const defaultValue = (type: BsonType): unknown => {
-  if (type === "string") return "";
-  if (type === "int32" || type === "int64") return 0;
-  if (type === "double") return 0.0;
-  if (type === "boolean") return false;
-  if (type === "date") return new Date().toISOString();
-  if (type === "objectId")
-    return Array.from(crypto.getRandomValues(new Uint8Array(12)))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+const newFieldHasInput = computed(
+  () =>
+    newFieldType.value !== "object" &&
+    newFieldType.value !== "array" &&
+    newFieldType.value !== "null",
+);
+
+const resetNewFieldValue = (type: BsonType) => {
+  newFieldBoolValue.value = false;
+  if (type === "date") {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    newFieldRawValue.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  } else if (type === "int32" || type === "int64" || type === "double") {
+    newFieldRawValue.value = "0";
+  } else {
+    newFieldRawValue.value = "";
+  }
+};
+
+const onNewTypeChange = (type: BsonType) => {
+  newFieldType.value = type;
+  resetNewFieldValue(type);
+};
+
+const parseNewFieldValue = (): unknown => {
+  const type = newFieldType.value;
   if (type === "null") return null;
   if (type === "object") return {};
   if (type === "array") return [];
-  return "";
+  if (type === "boolean") return newFieldBoolValue.value;
+  if (type === "int32" || type === "int64")
+    return Math.trunc(Number(newFieldRawValue.value) || 0);
+  if (type === "double") return Number(newFieldRawValue.value) || 0;
+  if (type === "date") {
+    const d = new Date(newFieldRawValue.value);
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  }
+  return newFieldRawValue.value;
 };
 
 const startAddField = async (parentPath: string, isArray: boolean) => {
   addingAtPath.value = parentPath;
   newFieldKey.value = "";
   newFieldType.value = "string";
+  resetNewFieldValue("string");
   if (!isArray) {
     await nextTick();
     addKeyInputEl.value?.focus();
@@ -313,11 +341,11 @@ const commitAddField = () => {
   for (const part of parts) target = target[part];
 
   if (Array.isArray(target)) {
-    target.push(defaultValue(newFieldType.value));
+    target.push(parseNewFieldValue());
   } else {
     const key = newFieldKey.value.trim();
     if (!key || key in target) return;
-    target[key] = defaultValue(newFieldType.value);
+    target[key] = parseNewFieldValue();
     if (newFieldType.value === "object" || newFieldType.value === "array") {
       const newPath = addingAtPath.value
         ? `${addingAtPath.value}.${key}`
@@ -524,30 +552,73 @@ const hoveredPath = ref<string | null>(null);
           >
             <template v-if="addingAtPath === row.parentPath">
               <div class="flex items-center gap-1.5">
+                <!-- Key input (objects only, not arrays) -->
                 <input
                   v-if="!row.isArray"
                   ref="addKeyInputEl"
                   v-model="newFieldKey"
                   type="text"
                   placeholder="field name"
-                  class="w-28 bg-primary/5 border-b border-primary outline-none text-on-surface px-1 font-mono text-code-sm"
+                  class="w-28 shrink-0 bg-primary/5 border-b border-primary outline-none text-on-surface px-1 font-mono text-code-sm"
                   @keydown.enter="commitAddField"
                   @keydown.escape="cancelAddField"
                 />
+
+                <!-- Value input (type-specific) -->
+                <template v-if="newFieldHasInput">
+                  <input
+                    v-if="newFieldType === 'boolean'"
+                    type="checkbox"
+                    :checked="newFieldBoolValue"
+                    class="w-4 h-4 accent-primary shrink-0"
+                    @change="newFieldBoolValue = ($event.target as HTMLInputElement).checked"
+                  />
+                  <input
+                    v-else-if="newFieldType === 'date'"
+                    type="datetime-local"
+                    v-model="newFieldRawValue"
+                    step="1"
+                    class="flex-1 min-w-0 bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5 font-mono text-code-sm"
+                    @keydown.enter="commitAddField"
+                    @keydown.escape="cancelAddField"
+                  />
+                  <input
+                    v-else-if="newFieldType === 'int32' || newFieldType === 'int64' || newFieldType === 'double'"
+                    type="number"
+                    :step="newFieldType === 'double' ? 'any' : '1'"
+                    v-model="newFieldRawValue"
+                    class="flex-1 min-w-0 bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5 font-mono text-code-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    @keydown.enter="commitAddField"
+                    @keydown.escape="cancelAddField"
+                  />
+                  <input
+                    v-else
+                    type="text"
+                    v-model="newFieldRawValue"
+                    placeholder="value"
+                    class="flex-1 min-w-0 bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5 font-mono text-code-sm"
+                    @keydown.enter="commitAddField"
+                    @keydown.escape="cancelAddField"
+                  />
+                </template>
+                <span v-else class="flex-1" />
+
+                <!-- Type selector -->
                 <SelectBox
                   :model-value="newFieldType"
                   :options="BSON_TYPES"
-                  @update:model-value="newFieldType = $event"
+                  @update:model-value="onNewTypeChange($event)"
                 />
+
                 <button
-                  class="w-5 h-5 flex items-center justify-center rounded text-primary hover:bg-primary/10 transition-colors"
+                  class="w-5 h-5 flex items-center justify-center rounded text-primary hover:bg-primary/10 transition-colors shrink-0"
                   title="Add field"
                   @click="commitAddField"
                 >
                   <span class="material-symbols-outlined text-[14px]">check</span>
                 </button>
                 <button
-                  class="w-5 h-5 flex items-center justify-center rounded text-on-surface-variant/50 hover:text-on-surface-variant hover:bg-surface-variant transition-colors"
+                  class="w-5 h-5 flex items-center justify-center rounded text-on-surface-variant/50 hover:text-on-surface-variant hover:bg-surface-variant transition-colors shrink-0"
                   title="Cancel"
                   @click="cancelAddField"
                 >
