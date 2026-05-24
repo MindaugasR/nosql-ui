@@ -565,7 +565,7 @@ const hoveredPath = ref<string | null>(null);
                   v-model="newFieldKey"
                   type="text"
                   placeholder="field name"
-                  class="w-28 shrink-0 bg-primary/5 border-b border-primary outline-none text-on-surface px-1 font-mono text-code-sm"
+                  class="w-28 shrink-0 bg-surface-container border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-mono text-on-surface outline-none focus:border-primary transition-colors"
                   @keydown.enter="commitAddField"
                   @keydown.escape="cancelAddField"
                 />
@@ -584,7 +584,7 @@ const hoveredPath = ref<string | null>(null);
                     type="datetime-local"
                     v-model="newFieldRawValue"
                     step="1"
-                    class="flex-1 min-w-0 bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5 font-mono text-code-sm"
+                    class="flex-1 min-w-0 bg-surface-container border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-mono text-on-surface outline-none focus:border-primary transition-colors"
                     @keydown.enter="commitAddField"
                     @keydown.escape="cancelAddField"
                   />
@@ -593,7 +593,7 @@ const hoveredPath = ref<string | null>(null);
                     type="number"
                     :step="newFieldType === 'double' ? 'any' : '1'"
                     v-model="newFieldRawValue"
-                    class="flex-1 min-w-0 bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5 font-mono text-code-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    class="flex-1 min-w-0 bg-surface-container border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-mono text-on-surface outline-none focus:border-primary transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     @keydown.enter="commitAddField"
                     @keydown.escape="cancelAddField"
                   />
@@ -602,7 +602,7 @@ const hoveredPath = ref<string | null>(null);
                     type="text"
                     v-model="newFieldRawValue"
                     placeholder="value"
-                    class="flex-1 min-w-0 bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5 font-mono text-code-sm"
+                    class="flex-1 min-w-0 bg-surface-container border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-mono text-on-surface outline-none focus:border-primary transition-colors"
                     @keydown.enter="commitAddField"
                     @keydown.escape="cancelAddField"
                   />
