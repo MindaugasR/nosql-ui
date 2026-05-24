@@ -80,7 +80,7 @@
 
             <button
               class="w-7 h-7 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors shrink-0"
-              @click="emit('close')"
+              @click="requestClose()"
             >
               <span class="material-symbols-outlined text-[18px]">close</span>
             </button>
@@ -102,9 +102,33 @@
             />
           </div>
 
+          <!-- Discard confirm bar -->
+          <Transition name="confirm-slide">
+            <div
+              v-if="showCloseConfirm && idx === stack.length - 1"
+              class="px-4 py-3 border-t border-error/30 bg-error-container/20 shrink-0"
+            >
+              <p class="text-body-sm text-on-surface mb-2.5">Discard unsaved changes?</p>
+              <div class="flex items-center gap-2">
+                <button
+                  class="px-3 py-1.5 rounded bg-error text-on-error text-body-sm font-medium hover:opacity-90 transition-opacity"
+                  @click="discardAndClose"
+                >
+                  Discard
+                </button>
+                <button
+                  class="px-3 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
+                  @click="showCloseConfirm = false"
+                >
+                  Keep editing
+                </button>
+              </div>
+            </div>
+          </Transition>
+
           <!-- Footer (top panel only) -->
           <div
-            v-if="idx === stack.length && !aggregation"
+            v-if="idx === stack.length - 1 && !aggregation"
             class="flex items-center justify-between px-4 py-3 border-t border-outline-variant shrink-0 bg-surface-container"
           >
             <button
@@ -117,13 +141,13 @@
             <div class="flex items-center gap-2">
               <button
                 class="px-4 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
-                @click="emit('close')"
+                @click="requestClose()"
               >
                 Cancel
               </button>
               <button
-                class="px-4 py-1.5 bg-primary text-on-primary rounded text-body-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
-                :disabled="saving"
+                class="px-4 py-1.5 bg-primary text-on-primary rounded text-body-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                :disabled="saving || !isDirty"
                 @click="save"
               >
                 <span
@@ -163,23 +187,45 @@ const emit = defineEmits<{
   "pop-to": [index: number];
 }>();
 
-// Local editable copy of the TOP document only
 const localDoc = ref<Record<string, unknown> | null>(null);
+const originalDoc = ref<Record<string, unknown> | null>(null);
+const showCloseConfirm = ref(false);
 
 const topEntry = computed(() =>
   props.stack ? props.stack[props.stack.length - 1] : null,
 );
 
+const isDirty = computed(() => {
+  if (!localDoc.value || !originalDoc.value) return false;
+  return JSON.stringify(localDoc.value) !== JSON.stringify(originalDoc.value);
+});
+
 watch(
   topEntry,
   (entry) => {
-    localDoc.value = entry ? JSON.parse(JSON.stringify(entry.doc)) : null;
+    const doc = entry ? JSON.parse(JSON.stringify(entry.doc)) : null;
+    localDoc.value = doc;
+    originalDoc.value = doc ? JSON.parse(JSON.stringify(doc)) : null;
+    showCloseConfirm.value = false;
   },
   { immediate: true },
 );
 
 const save = () => {
   if (localDoc.value) emit("save", localDoc.value);
+};
+
+const requestClose = () => {
+  if (isDirty.value) {
+    showCloseConfirm.value = true;
+  } else {
+    emit("close");
+  }
+};
+
+const discardAndClose = () => {
+  showCloseConfirm.value = false;
+  emit("close");
 };
 
 const onPanelEnter = (el: Element, done: () => void) => {
@@ -203,5 +249,15 @@ const onPanelEnter = (el: Element, done: () => void) => {
 .editor-fade-enter-from,
 .editor-fade-leave-to {
   opacity: 0;
+}
+
+.confirm-slide-enter-active,
+.confirm-slide-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.confirm-slide-enter-from,
+.confirm-slide-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onUnmounted } from "vue";
 import SelectBox from "./SelectBox.vue";
 
 export type BsonType =
@@ -48,17 +48,17 @@ const emit = defineEmits<{
 }>();
 
 const expanded = ref(new Set<string>());
-const localDoc = ref<Record<string, unknown>>(
-  JSON.parse(JSON.stringify(props.document)),
-);
+const localDoc = ref<Record<string, unknown>>({});
+const changedPaths = ref(new Set<string>());
 
 watch(
-  () => props.document,
-  (doc) => {
-    localDoc.value = JSON.parse(JSON.stringify(doc));
+  () => (props.document as Record<string, unknown>)._id,
+  () => {
+    localDoc.value = JSON.parse(JSON.stringify(props.document));
     expanded.value = new Set();
+    changedPaths.value = new Set();
   },
-  { deep: false },
+  { immediate: true },
 );
 
 const detectType = (value: unknown): BsonType => {
@@ -170,11 +170,24 @@ const changeType = (node: TreeNode, newType: BsonType) => {
   const coerced = coerce(node.value, newType);
   const next = setPath(localDoc.value, node.path, coerced);
   localDoc.value = next;
+  changedPaths.value = new Set([...changedPaths.value, node.path]);
   emit("update:document", next);
 };
 
 const editingPath = ref<string | null>(null);
 const editingValue = ref("");
+const editingInitialValue = ref("");
+const editingNode = ref<TreeNode | null>(null);
+
+function onOutsideMouseDown(e: MouseEvent) {
+  if (!(e.target as HTMLElement).closest("[data-editing-cell]")) {
+    if (editingNode.value) commitEdit(editingNode.value);
+  }
+}
+
+onUnmounted(() => {
+  window.removeEventListener("mousedown", onOutsideMouseDown);
+});
 
 const startEdit = (node: TreeNode) => {
   if (
@@ -184,28 +197,54 @@ const startEdit = (node: TreeNode) => {
     node.type === "null"
   )
     return;
+  if (node.type === "boolean") {
+    const next = setPath(localDoc.value, node.path, !node.value);
+    localDoc.value = next;
+    changedPaths.value = new Set([...changedPaths.value, node.path]);
+    emit("update:document", next);
+    return;
+  }
+  if (editingNode.value && editingNode.value.path !== node.path) {
+    commitEdit(editingNode.value);
+  }
   editingPath.value = node.path;
-  editingValue.value =
-    node.type === "date"
-      ? new Date(node.value as string).toISOString()
-      : String(node.value ?? "");
+  editingNode.value = node;
+  if (node.type === "date") {
+    const d = new Date(node.value as string);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    editingValue.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  } else {
+    editingValue.value = String(node.value ?? "");
+  }
+  editingInitialValue.value = editingValue.value;
+  window.addEventListener("mousedown", onOutsideMouseDown);
 };
 
 const commitEdit = (node: TreeNode) => {
   if (editingPath.value !== node.path) return;
   let parsed: unknown = editingValue.value;
-  if (node.type === "boolean") parsed = editingValue.value === "true";
-  else if (node.type === "int32" || node.type === "int64")
+  if (node.type === "int32" || node.type === "int64")
     parsed = Math.trunc(Number(editingValue.value) || 0);
   else if (node.type === "double") parsed = Number(editingValue.value) || 0;
+  else if (node.type === "date") {
+    const d = new Date(editingValue.value);
+    parsed = isNaN(d.getTime()) ? node.value : d.toISOString();
+  }
   const next = setPath(localDoc.value, node.path, parsed);
   localDoc.value = next;
   editingPath.value = null;
+  editingNode.value = null;
+  window.removeEventListener("mousedown", onOutsideMouseDown);
+  if (editingValue.value !== editingInitialValue.value) {
+    changedPaths.value = new Set([...changedPaths.value, node.path]);
+  }
   emit("update:document", next);
 };
 
 const cancelEdit = () => {
   editingPath.value = null;
+  editingNode.value = null;
+  window.removeEventListener("mousedown", onOutsideMouseDown);
 };
 
 const hoveredPath = ref<string | null>(null);
@@ -236,12 +275,17 @@ const hoveredPath = ref<string | null>(null);
       <template v-for="node in nodes" :key="node.path">
         <!-- Field -->
         <div
-          class="flex items-center gap-0.5 py-1.5 min-w-0 pr-3 border-b border-outline-variant/20 transition-colors"
+          class="relative flex items-center gap-0.5 py-1.5 min-w-0 pr-3 border-b border-outline-variant/20 transition-colors"
           :class="hoveredPath === node.path ? 'bg-surface-variant/20' : ''"
           :style="{ paddingLeft: `${node.depth * 14 + 10}px` }"
           @mouseenter="hoveredPath = node.path"
           @mouseleave="hoveredPath = null"
         >
+          <span
+            v-if="!readonly && changedPaths.has(node.path)"
+            class="absolute top-0 left-0 w-2 h-2 bg-orange-400 pointer-events-none"
+            style="clip-path: polygon(0 0, 100% 0, 0 100%)"
+          />
           <button
             v-if="node.hasChildren"
             class="w-4 h-4 flex items-center justify-center text-on-surface-variant hover:text-on-surface shrink-0"
@@ -269,11 +313,38 @@ const hoveredPath = ref<string | null>(null);
         <div
           class="flex items-center gap-1 py-1.5 px-2 min-w-0 border-b border-outline-variant/20 transition-colors"
           :class="hoveredPath === node.path ? 'bg-surface-variant/20' : ''"
+          :data-editing-cell="editingPath === node.path ? '' : undefined"
           @mouseenter="hoveredPath = node.path"
           @mouseleave="hoveredPath = null"
+          @dblclick="startEdit(node)"
         >
           <template v-if="editingPath === node.path">
             <input
+              v-if="node.type === 'date'"
+              type="datetime-local"
+              :value="editingValue"
+              step="1"
+              class="w-full bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5"
+              autofocus
+              @input="editingValue = ($event.target as HTMLInputElement).value"
+              @keydown.enter="commitEdit(node)"
+              @keydown.escape="cancelEdit"
+            />
+            <input
+              v-else-if="node.type === 'int32' || node.type === 'int64' || node.type === 'double'"
+              type="number"
+              :step="node.type === 'double' ? 'any' : '1'"
+              :value="editingValue"
+              class="w-full bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              autofocus
+              @input="editingValue = ($event.target as HTMLInputElement).value"
+              @keydown.enter="commitEdit(node)"
+              @keydown.escape="cancelEdit"
+              @blur="commitEdit(node)"
+            />
+            <input
+              v-else
+              type="text"
               :value="editingValue"
               class="w-full bg-primary/5 border-b border-primary outline-none text-on-surface px-0.5"
               autofocus
@@ -285,23 +356,28 @@ const hoveredPath = ref<string | null>(null);
           </template>
           <template v-else>
             <span
-              class="truncate"
+              class="truncate min-w-0"
               :class="[
                 typeColor(node.type),
                 node.hasChildren || node.key === '_id' || node.type === 'null'
                   ? ''
-                  : 'cursor-text hover:underline decoration-dotted underline-offset-2',
+                  : node.type === 'boolean'
+                    ? 'cursor-pointer'
+                    : 'cursor-text',
                 node.type === 'null' ? 'italic opacity-40' : '',
                 node.hasChildren ? 'opacity-50' : '',
+                !node.hasChildren && node.key !== '_id' && node.type !== 'null' && !formatValue(node)
+                  ? 'italic opacity-30'
+                  : '',
               ]"
-              @dblclick="startEdit(node)"
-              >{{ formatValue(node) }}</span
+              >{{ formatValue(node) || (node.type === 'string' ? '(empty)' : '') }}</span
             >
             <button
               v-if="node.type === 'objectId' && node.key !== '_id'"
               class="shrink-0 text-purple-400 hover:text-purple-300 opacity-40 hover:opacity-100 transition-opacity ml-0.5"
               title="Open linked document"
               @click.stop="emit('link-click', String(node.value))"
+              @dblclick.stop
             >
               <span
                 class="material-symbols-outlined text-sm! hover:cursor-pointer"

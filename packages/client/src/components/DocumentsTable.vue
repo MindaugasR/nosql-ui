@@ -238,6 +238,7 @@ const onSaveDocument = async (doc: Record<string, unknown>) => {
     );
 
     onCloseEditor();
+    await documentStore.fetchDocuments();
   } catch (err: any) {
     error.value = err.message;
   } finally {
