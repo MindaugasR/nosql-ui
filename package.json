@@ -2,6 +2,7 @@
   "name": "nosql-manager",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "workspaces": [
     "packages/server",
     "packages/client"
