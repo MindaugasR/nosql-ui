@@ -24,6 +24,7 @@ RUN npm run build -w packages/server
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV HUSKY=0
 COPY package.json package-lock.json ./
 COPY packages/server/package.json ./packages/server/
 COPY packages/client/package.json ./packages/client/
