@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, nextTick } from "vue";
 import SelectBox from "./SelectBox.vue";
+import AppInput from "./AppInput.vue";
 
 export type BsonType =
   | "string"
@@ -559,13 +560,12 @@ const hoveredPath = ref<string | null>(null);
             <template v-if="addingAtPath === row.parentPath">
               <div class="flex items-center gap-1.5">
                 <!-- Key input (objects only, not arrays) -->
-                <input
+                <AppInput
                   v-if="!row.isArray"
                   ref="addKeyInputEl"
                   v-model="newFieldKey"
-                  type="text"
                   placeholder="field name"
-                  class="w-28 shrink-0 bg-surface-container border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-mono text-on-surface outline-none focus:border-primary transition-colors"
+                  class="w-28 shrink-0"
                   @keydown.enter="commitAddField"
                   @keydown.escape="cancelAddField"
                 />
@@ -579,30 +579,29 @@ const hoveredPath = ref<string | null>(null);
                     class="w-4 h-4 accent-primary shrink-0"
                     @change="newFieldBoolValue = ($event.target as HTMLInputElement).checked"
                   />
-                  <input
+                  <AppInput
                     v-else-if="newFieldType === 'date'"
-                    type="datetime-local"
                     v-model="newFieldRawValue"
+                    type="datetime-local"
                     step="1"
-                    class="flex-1 min-w-0 bg-surface-container border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-mono text-on-surface outline-none focus:border-primary transition-colors"
+                    class="flex-1 min-w-0"
                     @keydown.enter="commitAddField"
                     @keydown.escape="cancelAddField"
                   />
-                  <input
+                  <AppInput
                     v-else-if="newFieldType === 'int32' || newFieldType === 'int64' || newFieldType === 'double'"
+                    v-model="newFieldRawValue"
                     type="number"
                     :step="newFieldType === 'double' ? 'any' : '1'"
-                    v-model="newFieldRawValue"
-                    class="flex-1 min-w-0 bg-surface-container border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-mono text-on-surface outline-none focus:border-primary transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    class="flex-1 min-w-0"
                     @keydown.enter="commitAddField"
                     @keydown.escape="cancelAddField"
                   />
-                  <input
+                  <AppInput
                     v-else
-                    type="text"
                     v-model="newFieldRawValue"
                     placeholder="value"
-                    class="flex-1 min-w-0 bg-surface-container border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-mono text-on-surface outline-none focus:border-primary transition-colors"
+                    class="flex-1 min-w-0"
                     @keydown.enter="commitAddField"
                     @keydown.escape="cancelAddField"
                   />
