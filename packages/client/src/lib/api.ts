@@ -5,11 +5,9 @@ import { DocumentResponse } from "@/types/Document";
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   // Only send a JSON content-type when there's actually a body — otherwise
   // Fastify rejects bodyless requests (e.g. DELETE) with FST_ERR_CTP_EMPTY_JSON_BODY.
-  const headers: Record<string, string> = {
-    ...(init?.headers as Record<string, string>),
-  };
-  if (init?.body != null && !("Content-Type" in headers)) {
-    headers["Content-Type"] = "application/json";
+  const headers = new Headers(init?.headers);
+  if (init?.body != null && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
   const res = await fetch(`/api${path}`, { ...init, headers });
   const data = await res.json();

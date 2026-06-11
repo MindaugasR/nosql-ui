@@ -32,7 +32,7 @@ const cls = computed(() => VARIANT_CLASSES[props.variant]);
 </script>
 
 <template>
-  <button v-bind="$attrs" :disabled="disabled || loading" :class="cls">
+  <button type="button" v-bind="$attrs" :disabled="disabled || loading" :class="cls">
     <span
       v-if="loading"
       class="material-symbols-outlined text-[14px] animate-spin"

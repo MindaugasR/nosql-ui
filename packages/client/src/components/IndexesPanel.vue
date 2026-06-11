@@ -565,6 +565,10 @@ async function submitCreate() {
   if (form.sparse) options.sparse = true;
   if (form.hidden) options.hidden = true;
   if (form.ttl) {
+    if (form.ttlSeconds.trim() === "") {
+      createError.value = "Enter the TTL duration in seconds";
+      return;
+    }
     const secs = Number(form.ttlSeconds);
     if (!Number.isFinite(secs) || secs < 0) {
       createError.value = "TTL must be a non-negative number of seconds";
