@@ -79,12 +79,9 @@
               >sync</span
             >
 
-            <button
-              class="w-7 h-7 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors shrink-0"
-              @click="requestClose()"
-            >
+            <Button variant="icon" class="w-7 h-7 shrink-0" @click="requestClose()">
               <span class="material-symbols-outlined text-[18px]">close</span>
-            </button>
+            </Button>
           </div>
 
           <!-- Tree content -->
@@ -111,18 +108,8 @@
             >
               <p class="text-body-sm text-on-surface mb-2.5">Discard unsaved changes?</p>
               <div class="flex items-center gap-2">
-                <button
-                  class="px-3 py-1.5 rounded bg-error text-on-error text-body-sm font-medium hover:opacity-90 transition-opacity"
-                  @click="discardAndClose"
-                >
-                  Discard
-                </button>
-                <button
-                  class="px-3 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
-                  @click="showCloseConfirm = false"
-                >
-                  Keep editing
-                </button>
+                <Button variant="error" @click="discardAndClose">Discard</Button>
+                <Button variant="ghost" @click="showCloseConfirm = false">Keep editing</Button>
               </div>
             </div>
           </Transition>
@@ -132,33 +119,13 @@
             v-if="idx === stack.length - 1 && !aggregation"
             class="flex items-center justify-between px-4 py-3 border-t border-outline-variant shrink-0 bg-surface-container"
           >
-            <button
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded text-error hover:bg-error-container/20 transition-colors text-body-sm"
-              @click="emit('delete')"
-            >
+            <Button variant="danger" @click="emit('delete')">
               <span class="material-symbols-outlined text-[15px]">delete</span>
               Delete
-            </button>
+            </Button>
             <div class="flex items-center gap-2">
-              <button
-                class="px-4 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
-                @click="requestClose()"
-              >
-                Cancel
-              </button>
-              <button
-                class="px-4 py-1.5 bg-primary text-on-primary rounded text-body-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-                :disabled="saving || !isDirty"
-                @click="save"
-              >
-                <span
-                  v-if="saving"
-                  class="material-symbols-outlined text-[14px] animate-spin"
-                >
-                  sync
-                </span>
-                Save
-              </button>
+              <Button variant="ghost" @click="requestClose()">Cancel</Button>
+              <Button variant="primary" :disabled="saving || !isDirty" :loading="saving" @click="save">Save</Button>
             </div>
           </div>
         </div>
@@ -170,6 +137,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
 import DocumentTree from "./DocumentTree.vue";
+import Button from "./ui/Button.vue";
 import { StackEntry } from "@/types";
 
 const props = defineProps<{

@@ -23,12 +23,9 @@
                 — {{ collection }}
               </span>
             </div>
-            <button
-              class="w-7 h-7 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
-              @click="emit('close')"
-            >
+            <Button variant="icon" class="w-7 h-7" @click="emit('close')">
               <span class="material-symbols-outlined text-[18px]">close</span>
-            </button>
+            </Button>
           </div>
 
           <!-- Format tabs -->
@@ -115,23 +112,15 @@
           <div
             class="flex items-center justify-end gap-2 px-4 py-3 border-t border-outline-variant shrink-0 bg-surface-container rounded-b-xl"
           >
-            <button
-              class="px-4 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
-              @click="emit('close')"
-            >
-              Cancel
-            </button>
-            <button
-              class="px-4 py-1.5 bg-primary text-on-primary rounded text-body-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            <Button variant="ghost" @click="emit('close')">Cancel</Button>
+            <Button
+              variant="primary"
               :disabled="parsedDocs.length === 0 || !!parseError || importing"
+              :loading="importing"
               @click="doImport"
             >
-              <span
-                v-if="importing"
-                class="material-symbols-outlined text-[14px] animate-spin"
-              >sync</span>
               Import {{ parsedDocs.length > 0 ? parsedDocs.length : "" }} doc{{ parsedDocs.length !== 1 ? "s" : "" }}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -141,6 +130,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import Button from "./ui/Button.vue";
 import { api } from "@/lib/api";
 import { useConnectionsStore } from "@/stores/connections";
 import { useDatabaseStore } from "@/stores/useDatabaseStore";

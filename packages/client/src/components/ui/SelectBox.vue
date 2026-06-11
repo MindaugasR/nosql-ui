@@ -176,13 +176,13 @@ const onSearchKeydown = (e: KeyboardEvent) => {
             <button
               v-for="(opt, idx) in filteredOptions"
               :key="opt.value"
-              class="w-full text-left px-3 py-1.5 text-[12px] transition-colors whitespace-nowrap"
+              class="w-full text-left px-3 py-1.5 text-[12px] transition-colors whitespace-nowrap cursor-pointer hover:bg-on-surface/10"
               :class="
                 opt.value === modelValue && idx !== highlightIdx
-                  ? 'text-primary bg-primary/8 font-medium'
+                  ? 'text-primary bg-primary/15 font-medium'
                   : idx === highlightIdx
-                    ? 'bg-surface-variant/60 text-on-surface'
-                    : 'text-on-surface hover:bg-surface-variant/50'
+                    ? 'bg-on-surface/10 text-on-surface'
+                    : 'text-on-surface'
               "
               @click.stop="select(opt.value)"
               @mousemove="highlightIdx = idx"
@@ -200,7 +200,7 @@ const onSearchKeydown = (e: KeyboardEvent) => {
               v-else-if="
                 filteredOptions.length === 0 && allowCustom && search.trim()
               "
-              class="w-full text-left px-3 py-1.5 text-[12px] text-primary hover:bg-primary/8 transition-colors"
+              class="w-full text-left px-3 py-1.5 text-[12px] text-primary hover:bg-primary/8 transition-colors cursor-pointer"
               @click.stop="commitCustom"
             >
               Use "{{ search.trim() }}"

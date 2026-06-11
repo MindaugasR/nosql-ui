@@ -30,12 +30,9 @@
                 — {{ collection }}
               </span>
             </div>
-            <button
-              class="w-7 h-7 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors shrink-0"
-              @click="requestClose"
-            >
+            <Button variant="icon" class="w-7 h-7 shrink-0" @click="requestClose">
               <span class="material-symbols-outlined text-[18px]">close</span>
-            </button>
+            </Button>
           </div>
 
           <!-- Body -->
@@ -66,18 +63,8 @@
             >
               <p class="text-body-sm text-on-surface mb-2.5">Discard this document?</p>
               <div class="flex items-center gap-2">
-                <button
-                  class="px-3 py-1.5 rounded bg-error text-on-error text-body-sm font-medium hover:opacity-90 transition-opacity"
-                  @click="forceClose"
-                >
-                  Discard
-                </button>
-                <button
-                  class="px-3 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
-                  @click="showCloseConfirm = false"
-                >
-                  Keep editing
-                </button>
+                <Button variant="error" @click="forceClose">Discard</Button>
+                <Button variant="ghost" @click="showCloseConfirm = false">Keep editing</Button>
               </div>
             </div>
           </Transition>
@@ -86,23 +73,8 @@
           <div
             class="flex items-center justify-end gap-2 px-4 py-3 border-t border-outline-variant shrink-0 bg-surface-container rounded-b-xl"
           >
-            <button
-              class="px-4 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
-              @click="requestClose"
-            >
-              Cancel
-            </button>
-            <button
-              class="px-4 py-1.5 bg-primary text-on-primary rounded text-body-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-              :disabled="inserting"
-              @click="insert"
-            >
-              <span
-                v-if="inserting"
-                class="material-symbols-outlined text-[14px] animate-spin"
-              >sync</span>
-              Insert
-            </button>
+            <Button variant="ghost" @click="requestClose">Cancel</Button>
+            <Button variant="primary" :loading="inserting" @click="insert">Insert</Button>
           </div>
         </div>
       </div>
@@ -113,6 +85,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
 import DocumentTree from "./DocumentTree.vue";
+import Button from "./ui/Button.vue";
 import { api } from "@/lib/api";
 import { useConnectionsStore } from "@/stores/connections";
 import { useDatabaseStore } from "@/stores/useDatabaseStore";

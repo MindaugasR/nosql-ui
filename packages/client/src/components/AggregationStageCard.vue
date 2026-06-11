@@ -37,25 +37,27 @@
       </label>
 
       <!-- Move up -->
-      <button
+      <Button
         v-if="index > 0"
-        class="w-6 h-6 flex items-center justify-center rounded text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-variant transition-colors shrink-0"
+        variant="icon"
+        class="w-6 h-6 shrink-0 text-on-surface-variant/50"
         title="Move up"
         @click="emit('moveUp')"
       >
         <span class="material-symbols-outlined text-[14px]">keyboard_arrow_up</span>
-      </button>
+      </Button>
       <div v-else class="w-6 shrink-0" />
 
       <!-- Move down -->
-      <button
+      <Button
         v-if="index < total - 1"
-        class="w-6 h-6 flex items-center justify-center rounded text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-variant transition-colors shrink-0"
+        variant="icon"
+        class="w-6 h-6 shrink-0 text-on-surface-variant/50"
         title="Move down"
         @click="emit('moveDown')"
       >
         <span class="material-symbols-outlined text-[14px]">keyboard_arrow_down</span>
-      </button>
+      </Button>
       <div v-else class="w-6 shrink-0" />
 
       <!-- Delete -->
@@ -88,6 +90,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Stage, StageType } from '@/stores/useAggregationStore'
+import Button from '@/components/ui/Button.vue'
 
 import MatchStage from './stages/MatchStage.vue'
 import GroupStage from './stages/GroupStage.vue'

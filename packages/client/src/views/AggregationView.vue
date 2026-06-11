@@ -40,18 +40,19 @@
     </router-link>
 
     <!-- Export JSON button -->
-    <button
-      class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-outline-variant text-body-sm font-semibold text-on-surface-variant hover:border-primary hover:text-on-surface transition-colors"
+    <Button
+      variant="outline"
       title="Copy pipeline JSON to clipboard"
       @click="onExportPipeline"
     >
       <span class="material-symbols-outlined text-[15px]">content_copy</span>
       Export JSON
-    </button>
+    </Button>
 
     <!-- Run Pipeline button -->
-    <button
-      class="flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+    <Button
+      variant="primary"
+      class="rounded-lg"
       :disabled="aggStore.isRunning || aggStore.stages.length === 0"
       @click="aggStore.runPipeline()"
     >
@@ -62,7 +63,7 @@
         {{ aggStore.isRunning ? "progress_activity" : "play_arrow" }}
       </span>
       {{ aggStore.isRunning ? "Running…" : "Run Pipeline" }}
-    </button>
+    </Button>
   </div>
 
   <!-- Body: canvas + live query sidebar -->
@@ -337,7 +338,8 @@ import {
 } from "@/stores/useAggregationStore";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import { useDocumentStore } from "@/stores/useDocumentStore";
-import Badge from "@/components/Badge.vue";
+import Badge from "@/components/ui/Badge.vue";
+import Button from "@/components/ui/Button.vue";
 import AggregationStageCard from "@/components/AggregationStageCard.vue";
 import AggregationStageConnector from "@/components/AggregationStageConnector.vue";
 import AggregationStagePicker from "@/components/AggregationStagePicker.vue";

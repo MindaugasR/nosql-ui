@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from "vue";
-import type { FieldInfo } from "./FilterInput.vue";
+import type { FieldInfo } from "./ui/FilterInput.vue";
 
 const props = defineProps<{
   modelValue: string;

@@ -205,7 +205,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import type { FieldInfo } from "./FilterInput.vue";
+import type { FieldInfo } from "./ui/FilterInput.vue";
 import FieldCombobox from "./FieldCombobox.vue";
 
 const props = defineProps<{
