@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { getMongoClient } from '../drivers/mongo.js'
+import type { MongoClient } from 'mongodb'
+import { requireConnectionToken } from '../lib/connection-token.js'
 
 export interface ServerStats {
   version: string | null
@@ -23,8 +24,7 @@ export interface CollectionStat {
   indexes: number | null
 }
 
-const getMongoStats = async (uri: string): Promise<ServerStats> => {
-  const client = getMongoClient(uri)
+const getMongoStats = async (client: MongoClient): Promise<ServerStats> => {
   const status = await client.db('admin').admin().serverStatus()
   return {
     version: status.version ?? null,
@@ -44,8 +44,7 @@ const getMongoStats = async (uri: string): Promise<ServerStats> => {
   }
 }
 
-const getMongoDbList = async (uri: string): Promise<DbEntry[]> => {
-  const client = getMongoClient(uri)
+const getMongoDbList = async (client: MongoClient): Promise<DbEntry[]> => {
   const result = await client.db('admin').admin().listDatabases()
   return result.databases.map((db) => ({
     name: db.name,
@@ -54,8 +53,7 @@ const getMongoDbList = async (uri: string): Promise<DbEntry[]> => {
   }))
 }
 
-const getMongoCollections = async (uri: string, db: string): Promise<CollectionStat[]> => {
-  const client = getMongoClient(uri)
+const getMongoCollections = async (client: MongoClient, db: string): Promise<CollectionStat[]> => {
   const cols = await client.db(db).listCollections().toArray()
   return Promise.all(
     cols.map(async (col) => {
@@ -75,33 +73,31 @@ const getMongoCollections = async (uri: string, db: string): Promise<CollectionS
   )
 }
 
-type MongoQs = { uri?: string }
-
 export const statsRoutes: FastifyPluginAsync = async (app) => {
-  app.get<{ Querystring: MongoQs }>('/server', async (req, reply) => {
-    if (!req.query.uri) return reply.status(400).send({ error: 'uri required' })
+  // Resolve x-connection-token into req.mongoClient for every stats route
+  app.addHook('preHandler', requireConnectionToken)
+
+  app.get('/server', async (req, reply) => {
     try {
-      return await getMongoStats(req.query.uri)
+      return await getMongoStats(req.mongoClient)
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
     }
   })
 
-  app.get<{ Querystring: MongoQs }>('/databases', async (req, reply) => {
-    if (!req.query.uri) return reply.status(400).send({ error: 'uri required' })
+  app.get('/databases', async (req, reply) => {
     try {
-      return { databases: await getMongoDbList(req.query.uri) }
+      return { databases: await getMongoDbList(req.mongoClient) }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
     }
   })
 
-  app.get<{ Querystring: MongoQs & { db: string } }>('/collections', async (req, reply) => {
-    const { uri, db } = req.query
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
+  app.get<{ Querystring: { db: string } }>('/collections', async (req, reply) => {
+    const { db } = req.query
     if (!db) return reply.status(400).send({ error: 'db required' })
     try {
-      return { collections: await getMongoCollections(uri, db) }
+      return { collections: await getMongoCollections(req.mongoClient, db) }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
     }

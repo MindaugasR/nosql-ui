@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import type { Connection, NewConnection } from "../lib/types";
+import { api } from "../lib/api";
 
 const STORAGE_KEY = "nosql-manager-connections";
 const OPEN_KEY = "nosql-manager-open";
@@ -63,6 +64,8 @@ export const useConnectionsStore = defineStore("connections", {
       sessionStorage.setItem(CURRENT_KEY, conn.id);
     },
     closeConnection(id: string) {
+      const conn = this.openConnections.find((c) => c.id === id);
+      if (conn) api.disconnect(conn).catch(() => {}); // best-effort server cleanup
       this.openConnections = this.openConnections.filter((c) => c.id !== id);
       this.saveOpen();
 
