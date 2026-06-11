@@ -120,6 +120,7 @@
         <DocumentsTable
           v-else-if="viewTab === 'table'"
           :documents="result.documents"
+          :collection="resultCollection"
           :total="result.count"
           :limit="result.count ?? 0"
           :aggrgation="true"
@@ -172,7 +173,7 @@
         >
           <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="pendingWrite = null" />
           <div
-            class="relative bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl w-[420px] p-5"
+            class="relative bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl w-105 p-5"
           >
             <div class="flex items-center gap-2 text-amber-400 mb-3">
               <span class="material-symbols-outlined text-[20px]">warning</span>
@@ -345,6 +346,9 @@ const editorRef = ref<InstanceType<typeof QueryEditor> | null>(null);
 const running = ref(false);
 const error = ref<string | null>(null);
 const result = ref<QueryResponse | null>(null);
+// Collection of the last executed query — DocumentsTable needs it to open
+// the document side panel (row clicks are silently ignored without it)
+const resultCollection = ref<Collection | null>(null);
 const viewTab = ref<"table" | "json" | "tree">("table");
 const pendingWrite = ref<ParsedQuery | null>(null);
 
@@ -385,6 +389,9 @@ const execute = async (parsed: ParsedQuery) => {
       args: parsed.args,
       chain: parsed.chain,
     });
+    resultCollection.value =
+      collectionStore.collections().find((c) => c.name === parsed.collection) ??
+      ({ name: parsed.collection } as Collection);
     history.value = pushHistory({
       query: query.value.trim(),
       db: selectedDbName.value,

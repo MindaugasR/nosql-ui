@@ -333,17 +333,24 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
     const DEFAULT_FIND_LIMIT = 50
 
     const { db } = req.params
-    const { collection, method, chain = [] } = req.body ?? {}
-    if (!collection) return reply.status(400).send({ error: 'collection required' })
-    if (!method || (!READ_METHODS.has(method) && !WRITE_METHODS.has(method)))
+    const { collection, method } = req.body ?? {}
+    if (typeof collection !== 'string' || !collection)
+      return reply.status(400).send({ error: 'collection required' })
+    if (typeof method !== 'string' || (!READ_METHODS.has(method) && !WRITE_METHODS.has(method)))
       return reply.status(400).send({ error: `unsupported method: ${method}` })
-    for (const c of chain) {
-      if (!CHAIN_METHODS.has(c.method))
-        return reply.status(400).send({ error: `unsupported cursor method: ${c.method}` })
+
+    // Normalize the chain — reject anything that isn't a whitelisted cursor call
+    const rawChain = Array.isArray(req.body?.chain) ? req.body.chain : []
+    const chain: { method: string; args: unknown[] }[] = []
+    for (const c of rawChain) {
+      if (!c || typeof c !== 'object' || typeof c.method !== 'string' || !CHAIN_METHODS.has(c.method))
+        return reply.status(400).send({ error: `unsupported cursor method: ${c?.method}` })
+      chain.push({ method: c.method, args: Array.isArray(c.args) ? c.args : [] })
     }
 
     try {
-      const args = (await coerceObjectIds(req.body.args ?? [])) as unknown[]
+      const rawArgs = Array.isArray(req.body?.args) ? req.body.args : []
+      const args = (await coerceObjectIds(rawArgs)) as unknown[]
       const coll = req.mongoClient.db(db).collection(collection)
       const started = Date.now()
 
