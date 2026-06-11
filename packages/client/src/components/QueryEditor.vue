@@ -200,6 +200,9 @@ function shellComplete(context: CompletionContext): CompletionResult | null {
   // ── Collections after "db." ────────────────────────────────────────────────
   const collMatch = textBefore.match(/(?:^|[^\w$.])db\s*\.\s*([$\w]*)$/);
   if (collMatch) {
+    // No list yet (still loading) → return null so CodeMirror re-queries on the
+    // next keystroke instead of caching an empty result for this token
+    if (props.collections.length === 0) return null;
     return {
       from: context.pos - collMatch[1].length,
       options: props.collections.map((name) => ({

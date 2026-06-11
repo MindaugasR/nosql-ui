@@ -64,6 +64,15 @@
         <span class="material-symbols-outlined text-[16px] mt-0.5">error</span>
         <span class="text-body-sm font-mono">{{ error }}</span>
       </div>
+
+      <!-- Collections warning -->
+      <div
+        v-if="collectionsWarning"
+        class="flex items-center gap-2 text-amber-400 bg-amber-500/8 border border-amber-500/20 rounded-lg px-3 py-2 mt-3"
+      >
+        <span class="material-symbols-outlined text-[16px]">warning</span>
+        <span class="text-body-sm">{{ collectionsWarning }}</span>
+      </div>
     </div>
 
     <!-- Results -->
@@ -228,6 +237,7 @@ import {
 } from "@/lib/query-history";
 import { useConnectionsStore } from "@/stores/connections";
 import { useDatabaseStore } from "@/stores/useDatabaseStore";
+import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { Collection, Database } from "@/types";
 import type { FieldInfo } from "@/components/ui/FilterInput.vue";
 import QueryEditor from "@/components/QueryEditor.vue";
@@ -239,8 +249,11 @@ import Button from "@/components/ui/Button.vue";
 
 const connectionStore = useConnectionsStore();
 const databaseStore = useDatabaseStore();
+const collectionStore = useCollectionStore();
 
 // ── Database selection ────────────────────────────────────────────────────────
+
+const SYSTEM_DBS = new Set(["admin", "config", "local"]);
 
 const selectedDbName = ref<string>("");
 const dbOptions = computed(() =>
@@ -256,25 +269,38 @@ onMounted(async () => {
   const conn = connectionStore.active;
   if (!conn) return;
   await databaseStore.loadDatabases(conn);
+  const dbs = databaseStore.databases();
+  // Prefer the app-wide selected db, then the first non-system db
   selectedDbName.value =
-    databaseStore.database()?.name ?? databaseStore.databases()[0]?.name ?? "";
+    databaseStore.database()?.name ??
+    dbs.find((d) => !SYSTEM_DBS.has(d.name))?.name ??
+    dbs[0]?.name ??
+    "";
 });
 
 // ── Collections + fields for autocomplete ─────────────────────────────────────
 
-const collectionNames = ref<string[]>([]);
+// Shared with the Collections page — anything loaded there is reused here
+const collectionNames = computed(() =>
+  collectionStore.collections().map((c) => c.name),
+);
 const fieldsCache = ref(new Map<string, FieldInfo[]>());
+const collectionsWarning = ref<string | null>(null);
 
 watch(selectedDbName, async (dbName) => {
-  collectionNames.value = [];
   fieldsCache.value = new Map();
+  collectionsWarning.value = null;
   const conn = connectionStore.active;
   if (!conn || !dbName) return;
+  const db =
+    databaseStore.databases().find((d) => d.name === dbName) ??
+    ({ name: dbName } as Database);
+  // Keep the app-wide selection in sync so collectionStore keys resolve
+  databaseStore.setDatabase(conn, db);
   try {
-    const res = await api.stats.collections(conn, dbName);
-    collectionNames.value = res.collections.map((c) => c.name);
+    await collectionStore.fetchCollections(conn, db);
   } catch {
-    collectionNames.value = [];
+    collectionsWarning.value = `Could not load collections for "${dbName}" — autocomplete will be limited`;
   }
 });
 
