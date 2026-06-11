@@ -1,5 +1,6 @@
 <template>
-  <div class="flex flex-col h-full min-h-0">
+  <!-- AppLayout's <main> is a flex row — flex-1 makes the page span the full width -->
+  <div class="flex-1 min-w-0 flex flex-col h-full min-h-0">
     <!-- Toolbar -->
     <div
       class="flex items-center gap-3 px-5 py-3 border-b border-outline-variant bg-surface-container-high shrink-0"
