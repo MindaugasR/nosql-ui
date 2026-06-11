@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { ObjectId } from 'mongodb'
-import { getMongoClient } from '../drivers/mongo.js'
+import { requireConnectionToken } from '../lib/connection-token.js'
 
 function inferBsonType(v: unknown): string {
   if (v === null) return "null";
@@ -58,20 +58,15 @@ async function coerceObjectIds(value: unknown, fieldName?: string): Promise<unkn
   return value
 }
 
-interface MongoQuery {
-  Querystring: { uri: string }
-  Params: { db?: string; collection?: string }
-  Body: Record<string, unknown>
-}
-
 export const mongoRoutes: FastifyPluginAsync = async (app) => {
+  // Every route in this plugin resolves the x-connection-token header
+  // into req.mongoClient — the raw URI never travels with data requests.
+  app.addHook('preHandler', requireConnectionToken)
+
   // List databases
-  app.get<{ Querystring: { uri: string } }>('/databases', async (req, reply) => {
-    const { uri } = req.query
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
+  app.get('/databases', async (req, reply) => {
     try {
-      const client = getMongoClient(uri)
-      const result = await client.db('admin').admin().listDatabases()
+      const result = await req.mongoClient.db('admin').admin().listDatabases()
       return { databases: result.databases }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
@@ -79,32 +74,23 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // List collections in a database
-  app.get<{ Querystring: { uri: string }; Params: { db: string } }>(
-    '/:db/collections',
-    async (req, reply) => {
-      const { uri } = req.query
-      const { db } = req.params
-      if (!uri) return reply.status(400).send({ error: 'uri required' })
-      try {
-        const client = getMongoClient(uri)
-        const collections = await client.db(db).listCollections().toArray()
-        return { collections }
-      } catch (err: any) {
-        return reply.status(503).send({ error: err.message })
-      }
+  app.get<{ Params: { db: string } }>('/:db/collections', async (req, reply) => {
+    const { db } = req.params
+    try {
+      const collections = await req.mongoClient.db(db).listCollections().toArray()
+      return { collections }
+    } catch (err: any) {
+      return reply.status(503).send({ error: err.message })
     }
-  )
+  })
 
   // Get collection stats
-  app.get<{ Querystring: { uri: string }; Params: { db: string; collection: string } }>(
+  app.get<{ Params: { db: string; collection: string } }>(
     '/:db/:collection/stats',
     async (req, reply) => {
-      const { uri } = req.query
       const { db, collection } = req.params
-      if (!uri) return reply.status(400).send({ error: 'uri required' })
       try {
-        const client = getMongoClient(uri)
-        const stats = await client.db(db).command({ collStats: collection })
+        const stats = await req.mongoClient.db(db).command({ collStats: collection })
         return { stats }
       } catch (err: any) {
         return reply.status(503).send({ error: err.message })
@@ -113,14 +99,12 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
   )
 
   // Get collection indexes
-  app.get<{ Querystring: { uri: string }; Params: { db: string; collection: string } }>(
+  app.get<{ Params: { db: string; collection: string } }>(
     '/:db/:collection/indexes',
     async (req, reply) => {
-      const { uri } = req.query
       const { db, collection } = req.params
-      if (!uri) return reply.status(400).send({ error: 'uri required' })
       try {
-        const client = getMongoClient(uri)
+        const client = req.mongoClient
         const coll = client.db(db).collection(collection)
 
         const [indexDefs, statsResult, collStatsResult] = await Promise.allSettled([
@@ -167,7 +151,6 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
 
   // Create a collection index
   app.post<{
-    Querystring: { uri: string }
     Params: { db: string; collection: string }
     Body: {
       keys: Record<string, 1 | -1 | 'text' | '2dsphere'>
@@ -181,15 +164,12 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
       }
     }
   }>('/:db/:collection/indexes', async (req, reply) => {
-    const { uri } = req.query
     const { db, collection } = req.params
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
     const keys = req.body?.keys
     if (!keys || Object.keys(keys).length === 0)
       return reply.status(400).send({ error: 'at least one indexed field is required' })
     try {
-      const client = getMongoClient(uri)
-      const name = await client
+      const name = await req.mongoClient
         .db(db)
         .collection(collection)
         .createIndex(keys, req.body?.options ?? {})
@@ -201,16 +181,12 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
 
   // Drop a collection index by name
   app.delete<{
-    Querystring: { uri: string }
     Params: { db: string; collection: string; name: string }
   }>('/:db/:collection/indexes/:name', async (req, reply) => {
-    const { uri } = req.query
     const { db, collection, name } = req.params
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
     if (name === '_id_') return reply.status(400).send({ error: 'cannot drop the default _id index' })
     try {
-      const client = getMongoClient(uri)
-      await client.db(db).collection(collection).dropIndex(name)
+      await req.mongoClient.db(db).collection(collection).dropIndex(name)
       return { dropped: name }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
@@ -219,16 +195,14 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
 
   // Find documents
   app.post<{
-    Querystring: { uri: string; skip?: string; limit?: string }
+    Querystring: { skip?: string; limit?: string }
     Params: { db: string; collection: string }
     Body: { filter?: Record<string, unknown>; sort?: [string, 1 | -1][]; projection?: Record<string, unknown> }
   }>('/:db/:collection/find', async (req, reply) => {
-    const { uri, skip = '0', limit = '20' } = req.query
+    const { skip = '0', limit = '20' } = req.query
     const { db, collection } = req.params
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
     try {
-      const client = getMongoClient(uri)
-      const col = client.db(db).collection(collection)
+      const col = req.mongoClient.db(db).collection(collection)
       const filter = await coerceObjectIds(req.body?.filter ?? {}) as Record<string, unknown>
       const sort = req.body?.sort ?? []
       const projection = req.body?.projection ?? {}
@@ -247,16 +221,12 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
 
   // Insert document
   app.post<{
-    Querystring: { uri: string }
     Params: { db: string; collection: string }
     Body: Record<string, unknown>
   }>('/:db/:collection/insert', async (req, reply) => {
-    const { uri } = req.query
     const { db, collection } = req.params
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
     try {
-      const client = getMongoClient(uri)
-      const result = await client.db(db).collection(collection).insertOne(req.body)
+      const result = await req.mongoClient.db(db).collection(collection).insertOne(req.body)
       return { insertedId: result.insertedId }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
@@ -265,19 +235,15 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
 
   // Insert many documents
   app.post<{
-    Querystring: { uri: string }
     Params: { db: string; collection: string }
     Body: { documents: Record<string, unknown>[] }
   }>('/:db/:collection/insertMany', async (req, reply) => {
-    const { uri } = req.query
     const { db, collection } = req.params
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
     const docs = req.body?.documents
     if (!Array.isArray(docs) || docs.length === 0)
       return reply.status(400).send({ error: 'documents array required' })
     try {
-      const client = getMongoClient(uri)
-      const result = await client.db(db).collection(collection).insertMany(docs)
+      const result = await req.mongoClient.db(db).collection(collection).insertMany(docs)
       return { insertedCount: result.insertedCount }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
@@ -286,17 +252,12 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
 
   // Update document by _id
   app.put<{
-    Querystring: { uri: string }
     Params: { db: string; collection: string; id: string }
     Body: Record<string, unknown>
   }>('/:db/:collection/:id', async (req, reply) => {
-    const { uri } = req.query
     const { db, collection, id } = req.params
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
     try {
-      const { ObjectId } = await import('mongodb')
-      const client = getMongoClient(uri)
-      const result = await client
+      const result = await req.mongoClient
         .db(db)
         .collection(collection)
         .replaceOne({ _id: new ObjectId(id) }, req.body)
@@ -308,16 +269,11 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
 
   // Delete document by _id
   app.delete<{
-    Querystring: { uri: string }
     Params: { db: string; collection: string; id: string }
   }>('/:db/:collection/:id', async (req, reply) => {
-    const { uri } = req.query
     const { db, collection, id } = req.params
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
     try {
-      const { ObjectId } = await import('mongodb')
-      const client = getMongoClient(uri)
-      const result = await client
+      const result = await req.mongoClient
         .db(db)
         .collection(collection)
         .deleteOne({ _id: new ObjectId(id) })
@@ -329,16 +285,12 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
 
   // Resolve an ObjectId across all collections in a database
   app.get<{
-    Querystring: { uri: string }
     Params: { db: string; id: string }
   }>('/:db/resolve/:id', async (req, reply) => {
-    const { uri } = req.query
     const { db, id } = req.params
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
     try {
-      const { ObjectId } = await import('mongodb')
       const oid = new ObjectId(id)
-      const client = getMongoClient(uri)
+      const client = req.mongoClient
       const cols = await client.db(db).listCollections().toArray()
       const results = await Promise.all(
         cols.map(async (col) => {
@@ -356,16 +308,12 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
 
   // Run raw command
   app.post<{
-    Querystring: { uri: string }
     Params: { db: string }
     Body: Record<string, unknown>
   }>('/:db/command', async (req, reply) => {
-    const { uri } = req.query
     const { db } = req.params
-    if (!uri) return reply.status(400).send({ error: 'uri required' })
     try {
-      const client = getMongoClient(uri)
-      const result = await client.db(db).command(req.body)
+      const result = await req.mongoClient.db(db).command(req.body)
       return { result }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
@@ -373,16 +321,13 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // Run aggregation pipeline
-  app.post<{ Querystring: { uri: string }; Params: { db: string; collection: string } }>(
+  app.post<{ Params: { db: string; collection: string } }>(
     '/:db/:collection/aggregate',
     async (req, reply) => {
-      const { uri } = req.query
       const { db, collection } = req.params
       const { pipeline = [], options = {} } = req.body as { pipeline: any[]; options?: any }
-      if (!uri) return reply.status(400).send({ error: 'uri required' })
       try {
-        const client = getMongoClient(uri)
-        const coll = client.db(db).collection(collection)
+        const coll = req.mongoClient.db(db).collection(collection)
         const processedPipeline = await Promise.all(
           (pipeline as any[]).map(async (stage) => {
             if (stage && '$match' in stage) {
