@@ -97,8 +97,9 @@
       <Badge v-if="collection?.indexes != null" variant="default">{{ collection.indexes }}</Badge>
     </button>
 
-    <button
-      class="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-primary transition-colors shrink-0 mt-1"
+    <Button
+      variant="icon"
+      class="w-8 h-8 border border-outline-variant hover:border-primary shrink-0 mt-1"
       title="Refresh"
       @click="onRefresh"
     >
@@ -108,7 +109,7 @@
       >
         refresh
       </span>
-    </button>
+    </Button>
 
     <router-link
       v-if="collection"
@@ -120,12 +121,25 @@
       Aggregate
     </router-link>
 
-    <button
-      class="flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-semibold hover:opacity-90 transition-opacity shrink-0 mt-1"
+    <Button
+      variant="primary"
+      class="rounded-lg shrink-0 mt-1 disabled:pointer-events-none"
+      :disabled="!collection"
+      @click="showCreate = true"
     >
       <span class="material-symbols-outlined text-[15px]">add</span>
       Add
-    </button>
+    </Button>
+
+    <Button
+      variant="outline"
+      class="shrink-0 mt-1 disabled:pointer-events-none"
+      :disabled="!collection"
+      @click="showImport = true"
+    >
+      <span class="material-symbols-outlined text-[15px]">upload</span>
+      Import
+    </Button>
   </div>
 
   <!-- Filter syntax error -->
@@ -171,6 +185,7 @@
     :collection="collection"
     :connection="connectionStore.active"
     :database="database"
+    :fields="filterFields"
     @close="showIndexes = false"
   />
 
@@ -183,12 +198,26 @@
     :loading="isLoading"
     :collection="collection"
   />
+
+  <CreateDocumentModal
+    :open="showCreate"
+    :collection="collection?.name ?? ''"
+    @close="showCreate = false"
+    @inserted="onRefresh"
+  />
+
+  <ImportDocumentsModal
+    :open="showImport"
+    :collection="collection?.name ?? ''"
+    @close="showImport = false"
+    @imported="onRefresh"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import FilterInput, { type FieldInfo } from "../components/FilterInput.vue";
+import FilterInput, { type FieldInfo } from "../components/ui/FilterInput.vue";
 import { useConnectionsStore } from "../stores/connections";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import { useDocumentStore } from "@/stores/useDocumentStore";
@@ -198,7 +227,10 @@ import { ROUTE_NAME } from "@/route";
 import DocumentsTable from "@/components/DocumentsTable.vue";
 import QueryBuilderPanel from "@/components/QueryBuilderPanel.vue";
 import IndexesPanel from "@/components/IndexesPanel.vue";
-import Badge from "@/components/Badge.vue";
+import Badge from "@/components/ui/Badge.vue";
+import Button from "@/components/ui/Button.vue";
+import CreateDocumentModal from "@/components/CreateDocumentModal.vue";
+import ImportDocumentsModal from "@/components/ImportDocumentsModal.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -227,6 +259,8 @@ const database = computed(() => databaseStore.database());
 const isLoading = ref(false);
 const showBuilder = ref(false);
 const showIndexes = ref(false);
+const showCreate = ref(false);
+const showImport = ref(false);
 const error = ref<string | null>(null);
 
 const limit = ref(PageLimit.value.at(0)?.value ?? DEFAULT_LIMIT);

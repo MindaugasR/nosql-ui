@@ -21,49 +21,194 @@
                 <div class="p-1.5 bg-primary/10 rounded">
                   <span
                     class="material-symbols-outlined text-primary text-[18px]"
-                    >key</span
                   >
+                    key
+                  </span>
                 </div>
                 <div>
-                  <span class="text-body-md font-semibold text-on-surface"
-                    >Collection Indexes</span
-                  >
+                  <span class="text-body-md font-semibold text-on-surface">
+                    Collection Indexes
+                  </span>
                   <p class="text-[11px] text-on-surface-variant mt-0.5">
                     <span v-if="!loading && indexes.length > 0">
-                      {{ indexes.length }} index{{
-                        indexes.length === 1 ? "" : "es"
-                      }}
+                      {{ indexes.length }} index
+                      {{ indexes.length === 1 ? "" : "es" }}
                       on
                       <span class="text-primary font-mono">{{
                         collection?.name
                       }}</span>
                     </span>
                     <span v-else-if="!loading">
-                      <span class="font-mono text-primary">{{
-                        collection?.name
-                      }}</span>
+                      <span class="font-mono text-primary">
+                        {{ collection?.name }}
+                      </span>
                     </span>
                   </p>
                 </div>
               </div>
 
               <div class="flex items-center gap-2">
-                <button
-                  class="flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded text-label-caps font-semibold uppercase tracking-wider hover:opacity-90 active:scale-[0.98] transition-all text-[11px]"
+                <Button
+                  :variant="showCreate ? 'outline' : 'primary'"
+                  @click="showCreate ? (showCreate = false) : openCreate()"
                 >
-                  <span class="material-symbols-outlined text-[15px]">add</span>
-                  Create Index
-                </button>
-                <button
-                  class="w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
-                  @click="$emit('close')"
-                >
-                  <span class="material-symbols-outlined text-[18px]"
-                    >close</span
-                  >
-                </button>
+                  <span class="material-symbols-outlined text-[15px]">
+                    {{ showCreate ? "close" : "add" }}
+                  </span>
+                  {{ showCreate ? "Cancel" : "Create Index" }}
+                </Button>
+                <Button variant="icon" class="w-7 h-7" @click="$emit('close')">
+                  <span class="material-symbols-outlined text-[18px]">
+                    close
+                  </span>
+                </Button>
               </div>
             </div>
+
+            <!-- Create index form -->
+            <Transition name="idx-expand">
+              <div v-if="showCreate" class="grid shrink-0">
+                <div class="overflow-hidden">
+                  <div
+                    class="px-5 py-4 border-b border-outline-variant bg-surface-container-low/60"
+                  >
+                    <p
+                      class="text-label-caps text-[11px] uppercase tracking-wider text-on-surface-variant mb-2"
+                    >
+                      Fields to index
+                    </p>
+                    <div class="space-y-2">
+                      <div
+                        v-for="(key, i) in form.keys"
+                        :key="i"
+                        class="flex items-center gap-2"
+                      >
+                        <div class="flex-1 min-w-0">
+                          <SelectBox
+                            v-model="key.field"
+                            :options="fieldOptions"
+                            searchable
+                            allow-custom
+                            placeholder="Select or type a field…"
+                          />
+                        </div>
+                        <div class="w-32 shrink-0">
+                          <SelectBox v-model="key.dir" :options="dirOptions" />
+                        </div>
+                        <Button
+                          variant="icon"
+                          class="material-symbols-outlined text-[18px] text-on-surface-variant/50! hover:text-error! hover:bg-error/10! p-1 disabled:opacity-20 disabled:cursor-not-allowed"
+                          :disabled="form.keys.length === 1"
+                          title="Remove field"
+                          @click="removeKeyRow(i)"
+                        >
+                          close
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      class="flex! items-center gap-1 mt-2 px-0! py-1! text-[11px]!"
+                      @click="addKeyRow"
+                    >
+                      <span class="material-symbols-outlined text-[14px]">
+                        add
+                      </span>
+                      Add field
+                    </Button>
+
+                    <!-- Options -->
+                    <p
+                      class="text-label-caps text-[11px] uppercase tracking-wider text-on-surface-variant mt-4 mb-2"
+                    >
+                      Options
+                    </p>
+                    <div class="flex items-center gap-x-4 gap-y-2 flex-wrap">
+                      <div class="flex items-center gap-1">
+                        <Checkbox v-model="form.unique">Unique</Checkbox>
+                        <InfoPopover :entry="INDEX_OPTION_DOCS.unique" />
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <Checkbox v-model="form.sparse">Sparse</Checkbox>
+                        <InfoPopover :entry="INDEX_OPTION_DOCS.sparse" />
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <Checkbox v-model="form.hidden">Hidden</Checkbox>
+                        <InfoPopover :entry="INDEX_OPTION_DOCS.hidden" />
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <Checkbox v-model="form.ttl">TTL</Checkbox>
+                        <InfoPopover :entry="INDEX_OPTION_DOCS.ttl" />
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <Checkbox v-model="form.partial">Partial</Checkbox>
+                        <InfoPopover :entry="INDEX_OPTION_DOCS.partial" />
+                      </div>
+
+                      <div class="flex items-center gap-2 ml-auto">
+                        <span class="text-body-sm text-on-surface-variant"
+                          >Name</span
+                        >
+                        <TextInput
+                          v-model="form.name"
+                          placeholder="(auto)"
+                          class="w-44 text-[12px]! py-1!"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- TTL seconds -->
+                    <div v-if="form.ttl" class="flex items-center gap-2 mt-3">
+                      <span class="text-body-sm text-on-surface-variant"
+                        >Expire after</span
+                      >
+                      <TextInput
+                        v-model="form.ttlSeconds"
+                        type="number"
+                        step="1"
+                        placeholder="3600"
+                        class="w-28 text-[12px]! py-1!"
+                      />
+                      <span class="text-body-sm text-on-surface-variant"
+                        >seconds</span
+                      >
+                    </div>
+
+                    <!-- Partial filter expression -->
+                    <div v-if="form.partial" class="mt-3">
+                      <span class="text-body-sm text-on-surface-variant"
+                        >Partial filter expression (JSON)</span
+                      >
+                      <textarea
+                        v-model="form.partialFilter"
+                        rows="2"
+                        placeholder='{ "age": { "$gt": 18 } }'
+                        class="mt-1 w-full bg-surface-container border border-outline-variant rounded px-2 py-1.5 text-[12px] font-mono text-on-surface placeholder:text-on-surface-variant/40 outline-none focus:border-primary transition-colors resize-y"
+                      />
+                    </div>
+
+                    <p v-if="createError" class="text-error text-body-sm mt-3">
+                      {{ createError }}
+                    </p>
+
+                    <div class="flex items-center justify-end gap-2 mt-4">
+                      <Button variant="ghost" @click="showCreate = false">
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="primary"
+                        :loading="creating"
+                        :disabled="creating"
+                        @click="submitCreate"
+                      >
+                        {{ creating ? "Creating…" : "Create Index" }}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Transition>
 
             <!-- Body -->
             <div class="overflow-y-auto">
@@ -270,13 +415,20 @@
                             title="Cannot drop system index"
                             >lock</span
                           >
-                          <button
+                          <Button
                             v-else
-                            class="material-symbols-outlined text-[18px] text-on-surface-variant/50 hover:text-error hover:bg-error/10 p-1.5 rounded transition-colors"
+                            variant="icon"
+                            class="material-symbols-outlined text-[18px] text-on-surface-variant/50! hover:text-error! hover:bg-error/10! p-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                            :disabled="dropping === index.name"
                             title="Drop index"
+                            @click="dropIndex(index.name)"
                           >
-                            delete
-                          </button>
+                            {{
+                              dropping === index.name
+                                ? "hourglass_empty"
+                                : "delete"
+                            }}
+                          </Button>
                         </td>
                       </tr>
 
@@ -302,18 +454,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, reactive, computed } from "vue";
 import { api } from "@/lib/api";
 import type { IndexInfo } from "@/lib/api";
 import type { Collection } from "@/types/Collection";
 import type { Connection } from "@/lib/types";
 import type { Database } from "@/types";
+import TextInput from "@/components/ui/TextInput.vue";
+import SelectBox from "@/components/ui/SelectBox.vue";
+import Checkbox from "@/components/ui/Checkbox.vue";
+import InfoPopover from "@/components/ui/InfoPopover.vue";
+import Button from "@/components/ui/Button.vue";
+import type { FieldInfo } from "@/components/ui/FilterInput.vue";
+import { INDEX_OPTION_DOCS } from "@/lib/mongo-docs";
 
 const props = defineProps<{
   open: boolean;
   collection: Collection | null;
   connection: Connection | null;
   database: Database | null;
+  fields?: FieldInfo[];
 }>();
 
 defineEmits<{
@@ -323,6 +483,155 @@ defineEmits<{
 const indexes = ref<IndexInfo[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+
+type IndexDir = "1" | "-1" | "text" | "2dsphere";
+const dirOptions: { value: IndexDir; label: string }[] = [
+  { value: "1", label: "ASC (1)" },
+  { value: "-1", label: "DESC (-1)" },
+  { value: "text", label: "Text" },
+  { value: "2dsphere", label: "2dsphere" },
+];
+
+const fieldOptions = computed(() =>
+  (props.fields ?? []).map((f) => ({
+    value: f.name,
+    label: f.type ? `${f.name}  ·  ${f.type}` : f.name,
+  })),
+);
+
+const showCreate = ref(false);
+const creating = ref(false);
+const createError = ref<string | null>(null);
+const form = reactive({
+  keys: [{ field: "", dir: "1" as IndexDir }],
+  name: "",
+  unique: false,
+  sparse: false,
+  hidden: false,
+  ttl: false,
+  ttlSeconds: "",
+  partial: false,
+  partialFilter: "",
+});
+
+function resetForm() {
+  form.keys = [{ field: "", dir: "1" }];
+  form.name = "";
+  form.unique = false;
+  form.sparse = false;
+  form.hidden = false;
+  form.ttl = false;
+  form.ttlSeconds = "";
+  form.partial = false;
+  form.partialFilter = "";
+  createError.value = null;
+}
+
+function openCreate() {
+  resetForm();
+  showCreate.value = true;
+}
+
+function addKeyRow() {
+  form.keys.push({ field: "", dir: "1" });
+}
+
+function removeKeyRow(i: number) {
+  form.keys.splice(i, 1);
+}
+
+async function submitCreate() {
+  if (!props.connection || !props.database || !props.collection) return;
+  const validKeys = form.keys.filter((k) => k.field.trim());
+  if (validKeys.length === 0) {
+    createError.value = "Add at least one field";
+    return;
+  }
+  const keys: Record<string, 1 | -1 | "text" | "2dsphere"> = {};
+  for (const k of validKeys) {
+    keys[k.field.trim()] = k.dir === "1" ? 1 : k.dir === "-1" ? -1 : k.dir;
+  }
+
+  const options: {
+    name?: string;
+    unique?: boolean;
+    sparse?: boolean;
+    hidden?: boolean;
+    expireAfterSeconds?: number;
+    partialFilterExpression?: Record<string, unknown>;
+  } = {};
+  if (form.name.trim()) options.name = form.name.trim();
+  if (form.unique) options.unique = true;
+  if (form.sparse) options.sparse = true;
+  if (form.hidden) options.hidden = true;
+  if (form.ttl) {
+    if (form.ttlSeconds.trim() === "") {
+      createError.value = "Enter the TTL duration in seconds";
+      return;
+    }
+    const secs = Number(form.ttlSeconds);
+    if (!Number.isFinite(secs) || secs < 0) {
+      createError.value = "TTL must be a non-negative number of seconds";
+      return;
+    }
+    options.expireAfterSeconds = secs;
+  }
+  if (form.partial) {
+    try {
+      const parsed = JSON.parse(form.partialFilter);
+      if (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        Array.isArray(parsed)
+      )
+        throw new Error("not an object");
+      options.partialFilterExpression = parsed;
+    } catch {
+      createError.value =
+        'Partial filter must be valid JSON, e.g. { "age": { "$gt": 18 } }';
+      return;
+    }
+  }
+
+  creating.value = true;
+  createError.value = null;
+  try {
+    await api.data.createIndex(
+      props.connection,
+      props.database,
+      props.collection,
+      { keys, options },
+    );
+    showCreate.value = false;
+    await fetchIndexes();
+  } catch (err: any) {
+    createError.value = err.message ?? "Failed to create index";
+  } finally {
+    creating.value = false;
+  }
+}
+
+const dropping = ref<string | null>(null);
+
+async function dropIndex(name: string) {
+  if (!props.connection || !props.database || !props.collection) return;
+  if (!confirm(`Drop index "${name}"? This cannot be undone.`)) return;
+  dropping.value = name;
+  error.value = null;
+  try {
+    await api.data.dropIndex(
+      props.connection,
+      props.database,
+      props.collection,
+      name,
+    );
+    await fetchIndexes();
+  } catch (err: any) {
+    error.value = err.message ?? "Failed to drop index";
+  } finally {
+    dropping.value = null;
+  }
+}
 
 function formatSize(kb: number): string {
   if (kb >= 1024 * 1024) return `${(kb / 1024 / 1024).toFixed(1)} GB`;
@@ -357,7 +666,10 @@ async function fetchIndexes() {
 watch(
   () => props.open,
   (val) => {
-    if (val) fetchIndexes();
+    if (val) {
+      showCreate.value = false;
+      fetchIndexes();
+    }
   },
 );
 </script>
@@ -376,6 +688,20 @@ watch(
 .qb-drop-enter-from,
 .qb-drop-leave-to {
   transform: translateY(-8px);
+  opacity: 0;
+}
+
+/* Smooth collapse/expand of the create-index form via grid-rows */
+.idx-expand-enter-active,
+.idx-expand-leave-active {
+  transition:
+    grid-template-rows 0.24s ease,
+    opacity 0.2s ease;
+  grid-template-rows: 1fr;
+}
+.idx-expand-enter-from,
+.idx-expand-leave-to {
+  grid-template-rows: 0fr;
   opacity: 0;
 }
 </style>

@@ -80,23 +80,25 @@
       of {{ totalDocuments.toLocaleString() }} documents
     </span>
     <div class="flex items-center gap-2">
-      <button
-        class="px-3 py-1 border border-outline-variant rounded hover:border-primary text-on-surface-variant hover:text-on-surface transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      <Button
+        variant="outline"
+        class="rounded py-1 disabled:opacity-30"
         :disabled="skipDocuments === 0"
         @click="prevPage"
       >
         ← Prev
-      </button>
+      </Button>
       <span class="text-on-surface-variant px-1">
         {{ documentsPage }} / {{ documentsTotalPages }}
       </span>
-      <button
-        class="px-3 py-1 border border-outline-variant rounded hover:border-primary text-on-surface-variant hover:text-on-surface transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      <Button
+        variant="outline"
+        class="rounded py-1 disabled:opacity-30"
         :disabled="skipDocuments + limit >= totalDocuments"
         @click="nextPage"
       >
         Next →
-      </button>
+      </Button>
     </div>
   </div>
 
@@ -122,6 +124,7 @@ import { useDocumentStore } from "@/stores/useDocumentStore";
 import { formatCell } from "@/utils";
 
 import DocSideEditor from "@/components/DocSideEditor.vue";
+import Button from "@/components/ui/Button.vue";
 import { useConnectionsStore } from "@/stores/connections";
 import { useDatabaseStore } from "@/stores/useDatabaseStore";
 

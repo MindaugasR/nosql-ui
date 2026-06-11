@@ -3,10 +3,13 @@ import type { Connection } from "./types";
 import { DocumentResponse } from "@/types/Document";
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const res = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json", ...init?.headers },
-    ...init,
-  });
+  // Only send a JSON content-type when there's actually a body — otherwise
+  // Fastify rejects bodyless requests (e.g. DELETE) with FST_ERR_CTP_EMPTY_JSON_BODY.
+  const headers = new Headers(init?.headers);
+  if (init?.body != null && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const res = await fetch(`/api${path}`, { ...init, headers });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Request failed");
   return data as T;
@@ -80,6 +83,17 @@ export const api = {
         { method: "POST", body: JSON.stringify(doc) },
       ),
 
+    insertMany: (
+      conn: Connection,
+      db: string,
+      collection: string,
+      documents: Record<string, unknown>[],
+    ) =>
+      request<{ insertedCount: number }>(
+        `/mongo/${encodeURIComponent(db)}/${encodeURIComponent(collection)}/insertMany?uri=${encodeURIComponent(conn.uri)}`,
+        { method: "POST", body: JSON.stringify({ documents }) },
+      ),
+
     update: (
       conn: Connection,
       db: Database,
@@ -106,6 +120,38 @@ export const api = {
     indexes: (conn: Connection | null, db: Database | null, collection: Collection | null) =>
       request<{ indexes: IndexInfo[] }>(
         `/mongo/${encodeURIComponent(db!.name)}/${encodeURIComponent(collection!.name)}/indexes?uri=${encodeURIComponent(conn!.uri)}`,
+      ),
+
+    createIndex: (
+      conn: Connection,
+      db: Database,
+      collection: Collection,
+      body: {
+        keys: Record<string, 1 | -1 | "text" | "2dsphere">;
+        options?: {
+          name?: string;
+          unique?: boolean;
+          sparse?: boolean;
+          hidden?: boolean;
+          expireAfterSeconds?: number;
+          partialFilterExpression?: Record<string, unknown>;
+        };
+      },
+    ) =>
+      request<{ name: string }>(
+        `/mongo/${encodeURIComponent(db.name)}/${encodeURIComponent(collection.name)}/indexes?uri=${encodeURIComponent(conn.uri)}`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+
+    dropIndex: (
+      conn: Connection,
+      db: Database,
+      collection: Collection,
+      name: string,
+    ) =>
+      request<{ dropped: string }>(
+        `/mongo/${encodeURIComponent(db.name)}/${encodeURIComponent(collection.name)}/indexes/${encodeURIComponent(name)}?uri=${encodeURIComponent(conn.uri)}`,
+        { method: "DELETE" },
       ),
 
     aggregate: (

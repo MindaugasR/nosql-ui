@@ -36,7 +36,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import SelectBox from "@/components/SelectBox.vue";
+import SelectBox from "@/components/ui/SelectBox.vue";
 
 const props = defineProps<{
   modelValue: { field: string; preserveNull: boolean };

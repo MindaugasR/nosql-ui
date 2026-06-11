@@ -80,7 +80,7 @@ import {
 import { history, defaultKeymap, historyKeymap } from "@codemirror/commands";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { MONGO_OPS, FILTER_TEMPLATES } from "../lib/mongo-operators";
+import { MONGO_OPS, FILTER_TEMPLATES } from "../../lib/mongo-operators";
 
 export interface FieldInfo {
   name: string;

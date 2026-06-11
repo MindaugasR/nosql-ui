@@ -165,6 +165,58 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
     }
   )
 
+  // Create a collection index
+  app.post<{
+    Querystring: { uri: string }
+    Params: { db: string; collection: string }
+    Body: {
+      keys: Record<string, 1 | -1 | 'text' | '2dsphere'>
+      options?: {
+        name?: string
+        unique?: boolean
+        sparse?: boolean
+        hidden?: boolean
+        expireAfterSeconds?: number
+        partialFilterExpression?: Record<string, unknown>
+      }
+    }
+  }>('/:db/:collection/indexes', async (req, reply) => {
+    const { uri } = req.query
+    const { db, collection } = req.params
+    if (!uri) return reply.status(400).send({ error: 'uri required' })
+    const keys = req.body?.keys
+    if (!keys || Object.keys(keys).length === 0)
+      return reply.status(400).send({ error: 'at least one indexed field is required' })
+    try {
+      const client = getMongoClient(uri)
+      const name = await client
+        .db(db)
+        .collection(collection)
+        .createIndex(keys, req.body?.options ?? {})
+      return { name }
+    } catch (err: any) {
+      return reply.status(503).send({ error: err.message })
+    }
+  })
+
+  // Drop a collection index by name
+  app.delete<{
+    Querystring: { uri: string }
+    Params: { db: string; collection: string; name: string }
+  }>('/:db/:collection/indexes/:name', async (req, reply) => {
+    const { uri } = req.query
+    const { db, collection, name } = req.params
+    if (!uri) return reply.status(400).send({ error: 'uri required' })
+    if (name === '_id_') return reply.status(400).send({ error: 'cannot drop the default _id index' })
+    try {
+      const client = getMongoClient(uri)
+      await client.db(db).collection(collection).dropIndex(name)
+      return { dropped: name }
+    } catch (err: any) {
+      return reply.status(503).send({ error: err.message })
+    }
+  })
+
   // Find documents
   app.post<{
     Querystring: { uri: string; skip?: string; limit?: string }
@@ -206,6 +258,27 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
       const client = getMongoClient(uri)
       const result = await client.db(db).collection(collection).insertOne(req.body)
       return { insertedId: result.insertedId }
+    } catch (err: any) {
+      return reply.status(503).send({ error: err.message })
+    }
+  })
+
+  // Insert many documents
+  app.post<{
+    Querystring: { uri: string }
+    Params: { db: string; collection: string }
+    Body: { documents: Record<string, unknown>[] }
+  }>('/:db/:collection/insertMany', async (req, reply) => {
+    const { uri } = req.query
+    const { db, collection } = req.params
+    if (!uri) return reply.status(400).send({ error: 'uri required' })
+    const docs = req.body?.documents
+    if (!Array.isArray(docs) || docs.length === 0)
+      return reply.status(400).send({ error: 'documents array required' })
+    try {
+      const client = getMongoClient(uri)
+      const result = await client.db(db).collection(collection).insertMany(docs)
+      return { insertedCount: result.insertedCount }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
     }
