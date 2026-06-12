@@ -61,6 +61,14 @@ const request = async <T>(
   return data as T;
 };
 
+export type QueryResponse = {
+  type: "documents" | "value";
+  documents?: MongoDocument[];
+  value?: unknown;
+  count?: number;
+  executionMs: number;
+};
+
 export type IndexInfo = {
   key: Record<string, number | string>;
   name: string;
@@ -217,6 +225,22 @@ export const api = {
       request<{ dropped: string }>(
         `/mongo/${encodeURIComponent(db.name)}/${encodeURIComponent(collection.name)}/indexes/${encodeURIComponent(name)}`,
         { method: "DELETE" },
+        conn,
+      ),
+
+    query: (
+      conn: Connection,
+      db: Database,
+      body: {
+        collection: string;
+        method: string;
+        args: unknown[];
+        chain: { method: string; args: unknown[] }[];
+      },
+    ) =>
+      request<QueryResponse>(
+        `/mongo/${encodeURIComponent(db.name)}/query`,
+        { method: "POST", body: JSON.stringify(body) },
         conn,
       ),
 
