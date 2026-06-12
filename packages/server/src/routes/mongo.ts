@@ -82,7 +82,8 @@ function walkSchema(
       out.set(path, agg)
     }
     agg.seen++
-    agg.types.set(inferBsonType(v), (agg.types.get(inferBsonType(v)) ?? 0) + 1)
+    const type = inferBsonType(v)
+    agg.types.set(type, (agg.types.get(type) ?? 0) + 1)
 
     if (v instanceof ObjectId) {
       if (agg.oids.length < 8) agg.oids.push(v)
@@ -293,7 +294,9 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
       const all = (await mdb.listCollections().toArray())
         .map((c) => c.name)
         .filter((n) => !n.startsWith('system.'))
-      const names = (requested.length > 0 ? requested.filter((n) => all.includes(n)) : all).slice(0, 40)
+      const selected = requested.length > 0 ? requested.filter((n) => all.includes(n)) : all
+      // Cap the graph size — report truncation instead of failing silently
+      const names = selected.slice(0, 40)
 
       // 1) Sample every collection and aggregate its field schema
       const sampled = await Promise.all(
@@ -375,14 +378,17 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
             })
             matched = true
           }
-          // Auto-Detect: probe every other selected collection by value
+          // Auto-Detect: probe every other selected collection by value (in
+          // parallel — each probe is a tiny indexed _id lookup)
           if (!matched && verifyValues) {
-            let best: { target: string; ratio: number } | null = null
-            for (const other of names) {
-              if (candidates.includes(other)) continue
-              const ratio = await matchRatio(other, agg.oids)
-              if (ratio >= 0.4 && (!best || ratio > best.ratio)) best = { target: other, ratio }
-            }
+            const probes = await Promise.all(
+              names
+                .filter((other) => !candidates.includes(other))
+                .map(async (other) => ({ target: other, ratio: await matchRatio(other, agg.oids) })),
+            )
+            const best = probes
+              .filter((p) => p.ratio >= 0.4)
+              .sort((a, b) => b.ratio - a.ratio)[0]
             if (best) {
               relationships.push({
                 sourceCollection: src.name,
@@ -397,26 +403,37 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      // 3) Shape the response
-      const collections = sampled.map((s) => ({
-        name: s.name,
-        count: s.count,
-        sampled: s.docs,
-        fields: [...s.aggs.entries()]
-          .filter(([path]) => !path.includes('.') && !path.includes('[]'))
-          .map(([path, agg]) => ({
+      // 3) Shape the response. Card fields are top-level paths plus any nested
+      // path that participates in a relationship — edges need a field row
+      // (and its handle) to anchor to.
+      const collections = sampled.map((s) => {
+        const fkPaths = new Set(
+          relationships.filter((r) => r.sourceCollection === s.name).map((r) => r.sourceField),
+        )
+        return {
+          name: s.name,
+          count: s.count,
+          sampled: s.docs,
+          fields: [...s.aggs.entries()]
+            .filter(([path]) => (!path.includes('.') && !path.includes('[]')) || fkPaths.has(path))
+            .map(([path, agg]) => ({
+              name: path,
+              type: dominantType(agg),
+              presence: s.docs > 0 ? Math.min(agg.seen / s.docs, 1) : 0,
+            })),
+          allFields: [...s.aggs.entries()].map(([path, agg]) => ({
             name: path,
             type: dominantType(agg),
-            presence: s.docs > 0 ? agg.seen / s.docs : 0,
+            presence: s.docs > 0 ? Math.min(agg.seen / s.docs, 1) : 0,
           })),
-        allFields: [...s.aggs.entries()].map(([path, agg]) => ({
-          name: path,
-          type: dominantType(agg),
-          presence: s.docs > 0 ? Math.min(agg.seen / s.docs, 1) : 0,
-        })),
-      }))
+        }
+      })
 
-      return { collections, relationships }
+      return {
+        collections,
+        relationships,
+        truncatedFrom: selected.length > names.length ? selected.length : undefined,
+      }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
     }

@@ -138,6 +138,15 @@
       <span class="text-body-sm">{{ error }}</span>
     </div>
 
+    <!-- Notice (e.g. truncated selection) -->
+    <div
+      v-if="notice"
+      class="flex items-center gap-2 text-amber-400 bg-amber-500/8 border border-amber-500/20 rounded-lg px-3 py-2 mx-5 mt-3"
+    >
+      <span class="material-symbols-outlined text-[16px]">warning</span>
+      <span class="text-body-sm">{{ notice }}</span>
+    </div>
+
     <!-- Graph view -->
     <div v-show="viewTab === 'graph'" class="flex-1 min-h-0 relative">
       <VueFlow
@@ -612,6 +621,7 @@ watch(selectedDbName, async (dbName) => {
   schema.value = null;
   nodes.value = [];
   edges.value = [];
+  error.value = null;
   const conn = connectionStore.active;
   if (!conn || !dbName) return;
   const db =
@@ -668,6 +678,7 @@ const tabs = [
 const viewTab = ref<"graph" | "schema">("graph");
 const loading = ref(false);
 const error = ref<string | null>(null);
+const notice = ref<string | null>(null);
 const schema = ref<SchemaMapResponse | null>(null);
 
 const nodes = ref<Node[]>([]);
@@ -786,6 +797,9 @@ const mapSchema = async (verifyValues: boolean) => {
       verifyValues,
     });
     schema.value = res;
+    notice.value = res.truncatedFrom
+      ? `Mapped the first ${res.collections.length} of ${res.truncatedFrom} selected collections — narrow the selection for a full graph`
+      : null;
 
     const fks = new Map<string, Record<string, string>>();
     const incomingCounts = new Map<string, number>();
@@ -816,12 +830,15 @@ const mapSchema = async (verifyValues: boolean) => {
     }));
 
     edges.value = res.relationships
-      // Only draw edges whose source field is visible as a node handle
-      .filter(
-        (rel) =>
-          res.collections.some((c) => c.name === rel.sourceCollection) &&
-          res.collections.some((c) => c.name === rel.targetCollection),
-      )
+      // Only draw edges whose source field exists as a node handle
+      .filter((rel) => {
+        const src = res.collections.find((c) => c.name === rel.sourceCollection);
+        return (
+          !!src &&
+          src.fields.some((f) => f.name === rel.sourceField) &&
+          res.collections.some((c) => c.name === rel.targetCollection)
+        );
+      })
       .map((rel, i) => ({
         id: `${rel.sourceCollection}.${rel.sourceField}→${rel.targetCollection}#${i}`,
         source: rel.sourceCollection,

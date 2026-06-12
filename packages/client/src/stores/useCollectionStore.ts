@@ -187,6 +187,9 @@ export const useCollectionStore = defineStore("collection-store", {
       const databaseStore = useDatabaseStore();
       const db = database ?? databaseStore.database();
       if (!connection || !db) return;
+      // __key derives from the current selection — sync it first so the
+      // cache check and fetchCollections storage use the right key
+      databaseStore.setDatabase(connection, db);
       if (this.loaded.get(this.__key)) return;
       await this.fetchCollections(connection, db);
     },

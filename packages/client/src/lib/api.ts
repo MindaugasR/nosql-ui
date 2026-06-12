@@ -87,6 +87,8 @@ export type SchemaRelationship = {
 export type SchemaMapResponse = {
   collections: SchemaCollection[];
   relationships: SchemaRelationship[];
+  /** Set when the selection exceeded the server cap — total selected count. */
+  truncatedFrom?: number;
 };
 
 export type IndexInfo = {
