@@ -61,6 +61,34 @@ const request = async <T>(
   return data as T;
 };
 
+export type SchemaField = {
+  name: string;
+  type: string;
+  presence: number;
+};
+
+export type SchemaCollection = {
+  name: string;
+  count: number | null;
+  sampled: number;
+  fields: SchemaField[];
+  allFields: SchemaField[];
+};
+
+export type SchemaRelationship = {
+  sourceCollection: string;
+  sourceField: string;
+  targetCollection: string;
+  cardinality: "1:N" | "N:M";
+  confidence: "high" | "medium" | "low";
+  verified: boolean;
+};
+
+export type SchemaMapResponse = {
+  collections: SchemaCollection[];
+  relationships: SchemaRelationship[];
+};
+
 export type IndexInfo = {
   key: Record<string, number | string>;
   name: string;
@@ -217,6 +245,17 @@ export const api = {
       request<{ dropped: string }>(
         `/mongo/${encodeURIComponent(db.name)}/${encodeURIComponent(collection.name)}/indexes/${encodeURIComponent(name)}`,
         { method: "DELETE" },
+        conn,
+      ),
+
+    schemaMap: (
+      conn: Connection,
+      db: Database,
+      body: { collections?: string[]; sampleSize?: number; verifyValues?: boolean },
+    ) =>
+      request<SchemaMapResponse>(
+        `/mongo/${encodeURIComponent(db.name)}/schema-map`,
+        { method: "POST", body: JSON.stringify(body) },
         conn,
       ),
 

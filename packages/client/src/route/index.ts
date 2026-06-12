@@ -8,6 +8,7 @@ import CollectionsView from "@/views/CollectionsView.vue";
 import DataBrowserView from "@/views/DataBrowserView.vue";
 import AggregationView from "@/views/AggregationView.vue";
 import ConnectView from "@/views/ConnectView.vue";
+import RelationshipView from "@/views/RelationshipView.vue";
 
 export enum ROUTE_NAME {
   DASHBOARD = "dashbaord",
@@ -16,6 +17,7 @@ export enum ROUTE_NAME {
   DOCUMENTS = "documents",
   AGGREGATION = "aggregation",
   COLLECTIONS_LIST = "collections-list",
+  RELATIONSHIPS = "relationships",
 }
 
 const hasOpenConnections = (() => {
@@ -39,6 +41,11 @@ export const router = createRouter({
           path: "/dashboard",
           name: ROUTE_NAME.DASHBOARD,
           component: DashboardView,
+        },
+        {
+          path: "/relationships",
+          name: ROUTE_NAME.RELATIONSHIPS,
+          component: RelationshipView,
         },
         {
           path: "/collections",

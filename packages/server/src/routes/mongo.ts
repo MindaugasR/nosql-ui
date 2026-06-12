@@ -58,6 +58,85 @@ async function coerceObjectIds(value: unknown, fieldName?: string): Promise<unkn
   return value
 }
 
+// ── Schema map / relationship detection ──────────────────────────────────────
+
+interface FieldAgg {
+  types: Map<string, number>
+  oids: ObjectId[]
+  arrayOfOid: boolean
+  seen: number
+}
+
+function walkSchema(
+  obj: Record<string, unknown>,
+  out: Map<string, FieldAgg>,
+  prefix = '',
+  depth = 0,
+) {
+  if (depth > 3) return
+  for (const [k, v] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${k}` : k
+    let agg = out.get(path)
+    if (!agg) {
+      agg = { types: new Map(), oids: [], arrayOfOid: false, seen: 0 }
+      out.set(path, agg)
+    }
+    agg.seen++
+    agg.types.set(inferBsonType(v), (agg.types.get(inferBsonType(v)) ?? 0) + 1)
+
+    if (v instanceof ObjectId) {
+      if (agg.oids.length < 8) agg.oids.push(v)
+    } else if (Array.isArray(v)) {
+      const oidItems = v.filter((x): x is ObjectId => x instanceof ObjectId)
+      if (oidItems.length > 0) {
+        agg.arrayOfOid = true
+        for (const oid of oidItems) {
+          if (agg.oids.length >= 8) break
+          agg.oids.push(oid)
+        }
+      }
+      const firstObj = v.find(
+        (x) => x && typeof x === 'object' && !Array.isArray(x) && !(x instanceof ObjectId) && !(x instanceof Date),
+      )
+      if (firstObj) walkSchema(firstObj as Record<string, unknown>, out, `${path}[]`, depth + 1)
+    } else if (v && typeof v === 'object' && !(v instanceof Date)) {
+      walkSchema(v as Record<string, unknown>, out, path, depth + 1)
+    }
+  }
+}
+
+function dominantType(agg: FieldAgg): string {
+  let best = 'string'
+  let bestN = -1
+  for (const [t, n] of agg.types) {
+    if (n > bestN) { best = t; bestN = n }
+  }
+  if (best === 'array' && agg.arrayOfOid) return 'Array<ObjectId>'
+  return best
+}
+
+// customer_id → customer, companyIds → company, productID → product
+function fieldBaseName(path: string): string {
+  const last = path.split('.').pop()!.replace(/\[\]$/, '')
+  return last
+    .replace(/_?[iI][dD]s?$/, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .replace(/_+$/, '')
+}
+
+// Singular/plural candidates a field base name could refer to
+function nameCandidates(base: string): Set<string> {
+  const out = new Set<string>()
+  if (!base) return out
+  out.add(base)
+  out.add(`${base}s`)
+  out.add(`${base}es`)
+  if (base.endsWith('y')) out.add(`${base.slice(0, -1)}ies`)
+  if (base.endsWith('s')) out.add(base.slice(0, -1))
+  return out
+}
+
 export const mongoRoutes: FastifyPluginAsync = async (app) => {
   // Every route in this plugin resolves the x-connection-token header
   // into req.mongoClient — the raw URI never travels with data requests.
@@ -188,6 +267,156 @@ export const mongoRoutes: FastifyPluginAsync = async (app) => {
     try {
       await req.mongoClient.db(db).collection(collection).dropIndex(name)
       return { dropped: name }
+    } catch (err: any) {
+      return reply.status(503).send({ error: err.message })
+    }
+  })
+
+  // Build a schema map with relationship detection.
+  // Samples documents from the selected collections, infers field schemas and
+  // detects references: name heuristics (customer_id → customers) verified by
+  // sampled ObjectId lookups; verifyValues=true additionally tests unmatched
+  // ObjectId fields against every selected collection ("Auto-Detect").
+  app.post<{
+    Params: { db: string }
+    Body: { collections?: string[]; sampleSize?: number; verifyValues?: boolean }
+  }>('/:db/schema-map', async (req, reply) => {
+    const { db } = req.params
+    const requested = Array.isArray(req.body?.collections)
+      ? req.body.collections.filter((c): c is string => typeof c === 'string')
+      : []
+    const sampleSize = Math.min(Math.max(Number(req.body?.sampleSize) || 50, 10), 200)
+    const verifyValues = req.body?.verifyValues === true
+
+    try {
+      const mdb = req.mongoClient.db(db)
+      const all = (await mdb.listCollections().toArray())
+        .map((c) => c.name)
+        .filter((n) => !n.startsWith('system.'))
+      const names = (requested.length > 0 ? requested.filter((n) => all.includes(n)) : all).slice(0, 40)
+
+      // 1) Sample every collection and aggregate its field schema
+      const sampled = await Promise.all(
+        names.map(async (name) => {
+          const coll = mdb.collection(name)
+          const [docs, count] = await Promise.all([
+            coll
+              .aggregate([{ $sample: { size: sampleSize } }])
+              .toArray()
+              .catch(() => coll.find().limit(sampleSize).toArray()),
+            coll.estimatedDocumentCount().catch(() => null),
+          ])
+          const aggs = new Map<string, FieldAgg>()
+          for (const doc of docs) walkSchema(doc as Record<string, unknown>, aggs)
+          return { name, count, docs: docs.length, aggs }
+        }),
+      )
+
+      const lowerNames = new Map(names.map((n) => [n.toLowerCase(), n]))
+
+      // Ratio of sampled ids that exist in the target collection
+      const matchRatio = async (target: string, oids: ObjectId[]): Promise<number> => {
+        if (oids.length === 0) return 0
+        const probe = oids.slice(0, 5)
+        const found = await mdb
+          .collection(target)
+          .countDocuments({ _id: { $in: probe } })
+          .catch(() => 0)
+        return found / probe.length
+      }
+
+      // 2) Detect relationships from ObjectId fields
+      const relationships: {
+        sourceCollection: string
+        sourceField: string
+        targetCollection: string
+        cardinality: '1:N' | 'N:M'
+        confidence: 'high' | 'medium' | 'low'
+        verified: boolean
+      }[] = []
+
+      for (const src of sampled) {
+        for (const [path, agg] of src.aggs) {
+          if (path === '_id' || agg.oids.length === 0) continue
+          const type = dominantType(agg)
+          if (type !== 'ObjectId' && type !== 'Array<ObjectId>') continue
+
+          const cardinality = agg.arrayOfOid ? 'N:M' : '1:N'
+          const candidates = [...nameCandidates(fieldBaseName(path))]
+            .map((c) => lowerNames.get(c))
+            .filter((c): c is string => !!c)
+
+          let matched = false
+          // Name match first — verify with sampled ids
+          for (const target of candidates) {
+            const ratio = await matchRatio(target, agg.oids)
+            if (ratio >= 0.4) {
+              relationships.push({
+                sourceCollection: src.name,
+                sourceField: path,
+                targetCollection: target,
+                cardinality,
+                confidence: ratio >= 0.8 ? 'high' : 'medium',
+                verified: true,
+              })
+              matched = true
+              break
+            }
+          }
+          // Name match without value confirmation — keep as a low-confidence guess
+          if (!matched && candidates.length > 0 && !verifyValues) {
+            relationships.push({
+              sourceCollection: src.name,
+              sourceField: path,
+              targetCollection: candidates[0],
+              cardinality,
+              confidence: 'low',
+              verified: false,
+            })
+            matched = true
+          }
+          // Auto-Detect: probe every other selected collection by value
+          if (!matched && verifyValues) {
+            let best: { target: string; ratio: number } | null = null
+            for (const other of names) {
+              if (candidates.includes(other)) continue
+              const ratio = await matchRatio(other, agg.oids)
+              if (ratio >= 0.4 && (!best || ratio > best.ratio)) best = { target: other, ratio }
+            }
+            if (best) {
+              relationships.push({
+                sourceCollection: src.name,
+                sourceField: path,
+                targetCollection: best.target,
+                cardinality,
+                confidence: best.ratio >= 0.8 ? 'high' : 'medium',
+                verified: true,
+              })
+            }
+          }
+        }
+      }
+
+      // 3) Shape the response
+      const collections = sampled.map((s) => ({
+        name: s.name,
+        count: s.count,
+        sampled: s.docs,
+        fields: [...s.aggs.entries()]
+          .filter(([path]) => !path.includes('.') && !path.includes('[]'))
+          .map(([path, agg]) => ({
+            name: path,
+            type: dominantType(agg),
+            presence: s.docs > 0 ? agg.seen / s.docs : 0,
+          })),
+        allFields: [...s.aggs.entries()].map(([path, agg]) => ({
+          name: path,
+          type: dominantType(agg),
+          presence: s.docs > 0 ? Math.min(agg.seen / s.docs, 1) : 0,
+        })),
+      }))
+
+      return { collections, relationships }
     } catch (err: any) {
       return reply.status(503).send({ error: err.message })
     }
