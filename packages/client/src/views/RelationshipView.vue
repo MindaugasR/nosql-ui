@@ -159,7 +159,7 @@
       <Transition name="rel-panel">
         <div
           v-if="selectedRel"
-          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100%-2rem)]"
+          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100%_-_2rem)]"
         >
           <div
             class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant shrink-0"
@@ -330,7 +330,7 @@
       <Transition name="rel-panel">
         <div
           v-if="incomingFor && !selectedRel"
-          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100%-2rem)]"
+          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100%_-_2rem)]"
         >
           <div
             class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant shrink-0"
