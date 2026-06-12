@@ -137,7 +137,7 @@
         fit-view-on-init
         class="rel-flow"
         @edge-click="onEdgeClick"
-        @pane-click="selectedRel = null"
+        @pane-click="closePanels"
       >
         <Background pattern-color="#2d3449" :gap="22" :size="1.6" />
       </VueFlow>
@@ -146,21 +146,30 @@
       <Transition name="rel-panel">
         <div
           v-if="selectedRel"
-          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden"
+          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100%-2rem)]"
         >
           <div
-            class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant"
+            class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant shrink-0"
           >
             <div class="flex items-center gap-2">
+              <Button
+                v-if="cameFromIncoming"
+                variant="icon"
+                class="w-6 h-6 -ml-1"
+                title="Back to incoming list"
+                @click="selectedRel = null"
+              >
+                <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+              </Button>
               <span class="material-symbols-outlined text-primary text-[16px]">link</span>
               <span class="text-body-sm font-semibold text-on-surface">Relationship</span>
             </div>
-            <Button variant="icon" class="w-6 h-6" @click="selectedRel = null">
+            <Button variant="icon" class="w-6 h-6" @click="closePanels">
               <span class="material-symbols-outlined text-[16px]">close</span>
             </Button>
           </div>
 
-          <div class="p-4 flex flex-col gap-3">
+          <div class="p-4 flex flex-col gap-3 overflow-y-auto">
             <!-- From → To -->
             <div class="flex flex-col gap-1">
               <p class="text-[9px] uppercase tracking-wider text-on-surface-variant/70 font-semibold">
@@ -242,6 +251,51 @@
               </div>
               <pre class="px-3 py-2 font-mono text-[10px] text-secondary whitespace-pre-wrap leading-relaxed">{{ lookupSnippet }}</pre>
             </div>
+          </div>
+        </div>
+      </Transition>
+
+      <!-- Incoming references panel -->
+      <Transition name="rel-panel">
+        <div
+          v-if="incomingFor && !selectedRel"
+          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100%-2rem)]"
+        >
+          <div
+            class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant shrink-0"
+          >
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="material-symbols-outlined text-primary text-[16px]">south_west</span>
+              <span class="text-body-sm font-semibold text-on-surface truncate">
+                Incoming → <span class="font-mono text-primary">{{ incomingFor }}._id</span>
+              </span>
+            </div>
+            <Button variant="icon" class="w-6 h-6" @click="closePanels">
+              <span class="material-symbols-outlined text-[16px]">close</span>
+            </Button>
+          </div>
+
+          <div class="overflow-y-auto py-1">
+            <button
+              v-for="(rel, i) in incomingRels"
+              :key="i"
+              class="w-full flex items-center justify-between gap-2 px-4 py-2 hover:bg-on-surface/5 transition-colors cursor-pointer text-left border-b border-outline-variant/20"
+              @click="openRelFromIncoming(rel)"
+            >
+              <span class="font-mono text-[12px] min-w-0 truncate">
+                <span class="text-amber-300/60">{{ rel.sourceCollection }}.</span><span class="text-amber-300">{{ rel.sourceField }}</span>
+              </span>
+              <span class="flex items-center gap-1.5 shrink-0">
+                <span class="text-[9px] px-1.5 py-px bg-primary/10 text-primary rounded font-medium">{{ rel.cardinality }}</span>
+                <span
+                  v-if="rel.verified"
+                  class="material-symbols-outlined text-[13px] text-secondary"
+                  title="value-verified"
+                  >check</span
+                >
+                <span class="material-symbols-outlined text-[14px] text-on-surface-variant/40">chevron_right</span>
+              </span>
+            </button>
           </div>
         </div>
       </Transition>
@@ -494,10 +548,33 @@ const edges = ref<Edge[]>([]);
 
 const selectedRel = ref<SchemaRelationship | null>(null);
 const copied = ref(false);
+// Collection whose incoming references are listed; remembers panel navigation
+const incomingFor = ref<string | null>(null);
+const cameFromIncoming = ref(false);
+
+const incomingRels = computed(() =>
+  (schema.value?.relationships ?? []).filter(
+    (rel) => rel.targetCollection === incomingFor.value,
+  ),
+);
 
 const onEdgeClick = ({ edge }: { edge: Edge }) => {
   selectedRel.value = (edge.data as SchemaRelationship) ?? null;
+  cameFromIncoming.value = false;
+  incomingFor.value = null;
   copied.value = false;
+};
+
+const openRelFromIncoming = (rel: SchemaRelationship) => {
+  selectedRel.value = rel;
+  cameFromIncoming.value = true;
+  copied.value = false;
+};
+
+const closePanels = () => {
+  selectedRel.value = null;
+  incomingFor.value = null;
+  cameFromIncoming.value = false;
 };
 
 const lookupSnippet = computed(() => {
@@ -563,7 +640,7 @@ const mapSchema = async (verifyValues: boolean) => {
   if (!conn || !selectedDb.value || selectedCollections.value.size === 0) return;
   loading.value = true;
   error.value = null;
-  selectedRel.value = null;
+  closePanels();
   try {
     const res = await api.data.schemaMap(conn, selectedDb.value, {
       collections: [...selectedCollections.value],
@@ -572,17 +649,31 @@ const mapSchema = async (verifyValues: boolean) => {
     schema.value = res;
 
     const fks = new Map<string, Record<string, string>>();
+    const incomingCounts = new Map<string, number>();
     for (const rel of res.relationships) {
       const entry = fks.get(rel.sourceCollection) ?? {};
       entry[rel.sourceField] = rel.targetCollection;
       fks.set(rel.sourceCollection, entry);
+      incomingCounts.set(
+        rel.targetCollection,
+        (incomingCounts.get(rel.targetCollection) ?? 0) + 1,
+      );
     }
 
     nodes.value = res.collections.map((coll) => ({
       id: coll.name,
       type: "collection",
       position: { x: 0, y: 0 },
-      data: { collection: coll, fkTargets: fks.get(coll.name) ?? {} },
+      data: {
+        collection: coll,
+        fkTargets: fks.get(coll.name) ?? {},
+        incomingCount: incomingCounts.get(coll.name) ?? 0,
+        onShowIncoming: () => {
+          selectedRel.value = null;
+          cameFromIncoming.value = false;
+          incomingFor.value = coll.name;
+        },
+      },
     }));
 
     edges.value = res.relationships

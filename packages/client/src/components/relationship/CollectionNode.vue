@@ -52,6 +52,16 @@
             :title="`references ${fkTargets[field.name]}`"
             >FK</span
           >
+          <!-- Incoming references badge: click lists who points here -->
+          <button
+            v-if="field.name === '_id' && (data.incomingCount ?? 0) > 0"
+            class="nodrag flex items-center gap-0.5 text-[9px] px-1.5 py-px bg-primary/15 text-primary rounded-full font-bold shrink-0 cursor-pointer hover:bg-primary/25 transition-colors"
+            :title="`${data.incomingCount} incoming reference${data.incomingCount === 1 ? '' : 's'} — click to list`"
+            @click.stop="data.onShowIncoming?.()"
+          >
+            <span class="material-symbols-outlined text-[10px]">south_west</span>
+            {{ data.incomingCount }}
+          </button>
         </div>
         <span class="font-mono text-[10px] text-on-surface-variant/60 shrink-0">{{
           field.type
@@ -97,6 +107,8 @@ const props = defineProps<{
     collection: SchemaCollection;
     // field name → target collection
     fkTargets: Record<string, string>;
+    incomingCount?: number;
+    onShowIncoming?: () => void;
   };
 }>();
 
