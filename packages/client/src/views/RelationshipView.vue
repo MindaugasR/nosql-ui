@@ -6,12 +6,19 @@
       class="flex items-center gap-3 px-5 py-3 border-b border-outline-variant bg-surface-container-high shrink-0 flex-wrap"
     >
       <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-primary text-[20px]">account_tree</span>
-        <span class="text-body-md font-semibold text-on-surface">Relationships</span>
+        <span class="material-symbols-outlined text-primary text-[20px]"
+          >account_tree</span
+        >
+        <span class="text-body-md font-semibold text-on-surface"
+          >Relationships</span
+        >
       </div>
 
       <div class="flex items-center gap-2 ml-4">
-        <span class="text-[11px] text-on-surface-variant uppercase tracking-wider">Database</span>
+        <span
+          class="text-[11px] text-on-surface-variant uppercase tracking-wider"
+          >Database</span
+        >
         <div class="w-44">
           <SelectBox
             v-model="selectedDbName"
@@ -89,7 +96,9 @@
           "
           @click="viewTab = tab.id"
         >
-          <span class="material-symbols-outlined text-[14px]">{{ tab.icon }}</span>
+          <span class="material-symbols-outlined text-[14px]">{{
+            tab.icon
+          }}</span>
           {{ tab.label }}
         </button>
       </div>
@@ -101,7 +110,9 @@
           title="Probe sampled ObjectId values against every selected collection to find references name heuristics miss"
           @click="mapSchema(true)"
         >
-          <span class="material-symbols-outlined text-[16px]">network_intelligence</span>
+          <span class="material-symbols-outlined text-[16px]"
+            >network_intelligence</span
+          >
           Auto-Detect
         </Button>
         <Button
@@ -110,7 +121,9 @@
           :loading="loading"
           @click="mapSchema(false)"
         >
-          <span v-if="!loading" class="material-symbols-outlined text-[16px]">schema</span>
+          <span v-if="!loading" class="material-symbols-outlined text-[16px]"
+            >schema</span
+          >
           Map Schema
         </Button>
       </div>
@@ -159,47 +172,67 @@
                 title="Back to incoming list"
                 @click="selectedRel = null"
               >
-                <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                <span class="material-symbols-outlined text-[16px]"
+                  >arrow_back</span
+                >
               </Button>
-              <span class="material-symbols-outlined text-primary text-[16px]">link</span>
-              <span class="text-body-sm font-semibold text-on-surface">Relationship</span>
+              <span class="material-symbols-outlined text-primary text-[16px]"
+                >link</span
+              >
+              <span class="text-body-sm font-semibold text-on-surface"
+                >Relationship</span
+              >
             </div>
             <Button variant="icon" class="w-6 h-6" @click="closePanels">
               <span class="material-symbols-outlined text-[16px]">close</span>
             </Button>
           </div>
 
-          <div class="p-4 flex flex-col gap-3 overflow-y-auto">
+          <div class="p-4 flex flex-col gap-3 overflow-y-auto min-h-0">
             <!-- From → To -->
             <div class="flex flex-col gap-1">
-              <p class="text-[9px] uppercase tracking-wider text-on-surface-variant/70 font-semibold">
+              <p
+                class="text-[9px] uppercase tracking-wider text-on-surface-variant/70 font-semibold"
+              >
                 From — referencing field
               </p>
               <div
                 class="w-full px-3 py-2 bg-amber-400/10 rounded-lg border border-amber-400/20 font-mono text-[13px] break-all leading-snug"
               >
-                <span class="text-amber-300/60">{{ selectedRel.sourceCollection }}.</span><span class="text-amber-300 font-semibold">{{ selectedRel.sourceField }}</span>
+                <span class="text-amber-300/60"
+                  >{{ selectedRel.sourceCollection }}.</span
+                ><span class="text-amber-300 font-semibold">{{
+                  selectedRel.sourceField
+                }}</span>
               </div>
 
               <div class="flex justify-center -my-0.5">
-                <span class="material-symbols-outlined text-on-surface-variant/50 text-[16px]"
+                <span
+                  class="material-symbols-outlined text-on-surface-variant/50 text-[16px]"
                   >south</span
                 >
               </div>
 
-              <p class="text-[9px] uppercase tracking-wider text-on-surface-variant/70 font-semibold">
+              <p
+                class="text-[9px] uppercase tracking-wider text-on-surface-variant/70 font-semibold"
+              >
                 To — referenced collection
               </p>
               <div
                 class="w-full px-3 py-2 bg-primary/10 rounded-lg border border-primary/20 font-mono text-[13px] break-all leading-snug"
               >
-                <span class="text-primary font-semibold">{{ selectedRel.targetCollection }}</span><span class="text-primary/60">._id</span>
+                <span class="text-primary font-semibold">{{
+                  selectedRel.targetCollection
+                }}</span
+                ><span class="text-primary/60">._id</span>
               </div>
             </div>
 
             <!-- Badges -->
             <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded border border-primary/20 font-medium">
+              <span
+                class="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded border border-primary/20 font-medium"
+              >
                 {{ selectedRel.cardinality }}
               </span>
               <span
@@ -216,7 +249,9 @@
                 v-if="selectedRel.verified"
                 class="text-[10px] px-1.5 py-0.5 bg-secondary/10 text-secondary rounded border border-secondary/20 font-medium flex items-center gap-0.5"
               >
-                <span class="material-symbols-outlined text-[11px]">check</span>
+                <span class="material-symbols-outlined text-[11px]!"
+                  >check</span
+                >
                 value-verified
               </span>
               <span
@@ -228,28 +263,64 @@
 
             <p class="text-[11px] text-on-surface-variant leading-relaxed">
               <template v-if="selectedRel.cardinality === 'N:M'">
-                Each <span class="font-mono text-on-surface">{{ selectedRel.sourceCollection }}</span> document holds an
-                <span class="font-mono text-on-surface">array</span> of ids referencing
-                <span class="font-mono text-on-surface">{{ selectedRel.targetCollection }}</span> documents.
+                Each
+                <span class="font-mono text-on-surface">{{
+                  selectedRel.sourceCollection
+                }}</span>
+                document holds an
+                <span class="font-mono text-on-surface">array</span> of ids
+                referencing
+                <span class="font-mono text-on-surface">{{
+                  selectedRel.targetCollection
+                }}</span>
+                documents.
               </template>
               <template v-else>
-                Each <span class="font-mono text-on-surface">{{ selectedRel.sourceCollection }}</span> document references one
-                <span class="font-mono text-on-surface">{{ selectedRel.targetCollection }}</span> document — one
-                <span class="font-mono text-on-surface">{{ selectedRel.targetCollection }}</span> can be referenced by many.
+                Each
+                <span class="font-mono text-on-surface">{{
+                  selectedRel.sourceCollection
+                }}</span>
+                document references one
+                <span class="font-mono text-on-surface">{{
+                  selectedRel.targetCollection
+                }}</span>
+                document — one
+                <span class="font-mono text-on-surface">{{
+                  selectedRel.targetCollection
+                }}</span>
+                can be referenced by many.
               </template>
             </p>
 
             <!-- $lookup snippet -->
-            <div class="bg-surface-container border border-outline-variant rounded-lg overflow-hidden">
-              <div class="flex items-center justify-between px-3 py-1.5 border-b border-outline-variant/50">
-                <span class="text-[10px] uppercase tracking-wider text-on-surface-variant font-semibold">$lookup</span>
-                <Button variant="icon" class="w-6 h-6" :title="copied ? 'Copied!' : 'Copy'" @click="copyLookup">
-                  <span class="material-symbols-outlined text-[14px]" :class="copied ? 'text-secondary' : ''">
+            <div
+              class="bg-surface-container border border-outline-variant rounded-lg overflow-hidden"
+            >
+              <div
+                class="flex items-center justify-between px-3 py-1.5 border-b border-outline-variant/50"
+              >
+                <span
+                  class="text-[10px] uppercase tracking-wider text-on-surface-variant font-semibold"
+                  >$lookup</span
+                >
+                <Button
+                  variant="icon"
+                  class="w-6 h-6"
+                  :title="copied ? 'Copied!' : 'Copy'"
+                  @click="copyLookup"
+                >
+                  <span
+                    class="material-symbols-outlined text-[14px]"
+                    :class="copied ? 'text-secondary' : ''"
+                  >
                     {{ copied ? "check" : "content_copy" }}
                   </span>
                 </Button>
               </div>
-              <pre class="px-3 py-2 font-mono text-[10px] text-secondary whitespace-pre-wrap leading-relaxed">{{ lookupSnippet }}</pre>
+              <pre
+                class="px-3 py-2 font-mono text-[10px] text-secondary whitespace-pre-wrap leading-relaxed"
+                >{{ lookupSnippet }}</pre
+              >
             </div>
           </div>
         </div>
@@ -265,9 +336,14 @@
             class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant shrink-0"
           >
             <div class="flex items-center gap-2 min-w-0">
-              <span class="material-symbols-outlined text-primary text-[16px]">south_west</span>
+              <span class="material-symbols-outlined text-primary text-base!"
+                >south_west</span
+              >
               <span class="text-body-sm font-semibold text-on-surface truncate">
-                Incoming → <span class="font-mono text-primary">{{ incomingFor }}._id</span>
+                Incoming →
+                <span class="font-mono text-primary"
+                  >{{ incomingFor }}._id</span
+                >
               </span>
             </div>
             <Button variant="icon" class="w-6 h-6" @click="closePanels">
@@ -275,7 +351,7 @@
             </Button>
           </div>
 
-          <div class="overflow-y-auto py-1">
+          <div class="overflow-y-auto py-1 min-h-0">
             <button
               v-for="(rel, i) in incomingRels"
               :key="i"
@@ -283,17 +359,25 @@
               @click="openRelFromIncoming(rel)"
             >
               <span class="font-mono text-[12px] min-w-0 truncate">
-                <span class="text-amber-300/60">{{ rel.sourceCollection }}.</span><span class="text-amber-300">{{ rel.sourceField }}</span>
+                <span class="text-amber-300/60"
+                  >{{ rel.sourceCollection }}.</span
+                ><span class="text-amber-300">{{ rel.sourceField }}</span>
               </span>
               <span class="flex items-center gap-1.5 shrink-0">
-                <span class="text-[9px] px-1.5 py-px bg-primary/10 text-primary rounded font-medium">{{ rel.cardinality }}</span>
+                <span
+                  class="text-[9px] px-1.5 py-px bg-primary/10 text-primary rounded font-medium"
+                  >{{ rel.cardinality }}</span
+                >
                 <span
                   v-if="rel.verified"
                   class="material-symbols-outlined text-[13px] text-secondary"
                   title="value-verified"
                   >check</span
                 >
-                <span class="material-symbols-outlined text-[14px] text-on-surface-variant/40">chevron_right</span>
+                <span
+                  class="material-symbols-outlined text-[14px] text-on-surface-variant/40"
+                  >chevron_right</span
+                >
               </span>
             </button>
           </div>
@@ -320,16 +404,36 @@
         v-if="nodes.length > 0"
         class="absolute bottom-4 right-4 flex flex-col gap-1 bg-surface-container-high border border-outline-variant rounded-lg p-1 shadow-xl"
       >
-        <Button variant="icon" class="w-8 h-8" title="Zoom in" @click="zoomIn()">
+        <Button
+          variant="icon"
+          class="w-8 h-8"
+          title="Zoom in"
+          @click="zoomIn()"
+        >
           <span class="material-symbols-outlined text-[18px]">add</span>
         </Button>
-        <Button variant="icon" class="w-8 h-8" title="Zoom out" @click="zoomOut()">
+        <Button
+          variant="icon"
+          class="w-8 h-8"
+          title="Zoom out"
+          @click="zoomOut()"
+        >
           <span class="material-symbols-outlined text-[18px]">remove</span>
         </Button>
-        <Button variant="icon" class="w-8 h-8" title="Fit view" @click="fitView({ padding: 0.2 })">
+        <Button
+          variant="icon"
+          class="w-8 h-8"
+          title="Fit view"
+          @click="fitView({ padding: 0.2 })"
+        >
           <span class="material-symbols-outlined text-[18px]">fit_screen</span>
         </Button>
-        <Button variant="icon" class="w-8 h-8" title="Re-layout" @click="applyLayout()">
+        <Button
+          variant="icon"
+          class="w-8 h-8"
+          title="Re-layout"
+          @click="applyLayout()"
+        >
           <span class="material-symbols-outlined text-[18px]">auto_fix</span>
         </Button>
       </div>
@@ -340,17 +444,23 @@
         class="absolute bottom-4 left-4 bg-surface-container-high/90 border border-outline-variant rounded-lg px-3 py-2 text-[10px] text-on-surface-variant flex flex-col gap-1"
       >
         <span class="flex items-center gap-2">
-          <span class="inline-block w-5 border-t-2 border-primary" /> verified reference
+          <span class="inline-block w-5 border-t-2 border-primary" /> verified
+          reference
         </span>
         <span class="flex items-center gap-2">
-          <span class="inline-block w-5 border-t-2 border-dashed border-on-surface-variant/50" />
+          <span
+            class="inline-block w-5 border-t-2 border-dashed border-on-surface-variant/50"
+          />
           name-based guess
         </span>
       </div>
     </div>
 
     <!-- Schema map view -->
-    <div v-show="viewTab === 'schema'" class="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+    <div
+      v-show="viewTab === 'schema'"
+      class="flex-1 min-h-0 overflow-y-auto px-5 py-4"
+    >
       <div
         v-if="schema"
         class="grid gap-4"
@@ -364,9 +474,14 @@
           <div
             class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant"
           >
-            <span class="text-body-sm font-semibold text-primary font-mono">{{ coll.name }}</span>
+            <span class="text-body-sm font-semibold text-primary font-mono">{{
+              coll.name
+            }}</span>
             <span class="text-[10px] text-on-surface-variant/60">
-              sampled {{ coll.sampled }}<template v-if="coll.count != null"> of {{ coll.count }}</template>
+              sampled {{ coll.sampled
+              }}<template v-if="coll.count != null">
+                of {{ coll.count }}</template
+              >
             </span>
           </div>
           <div class="py-1.5 max-h-80 overflow-y-auto">
@@ -378,7 +493,11 @@
               <div class="flex items-center gap-1.5 min-w-0">
                 <span
                   class="font-mono text-[11px] truncate"
-                  :class="fkMap[coll.name]?.[field.name] ? 'text-amber-300' : 'text-on-surface'"
+                  :class="
+                    fkMap[coll.name]?.[field.name]
+                      ? 'text-amber-300'
+                      : 'text-on-surface'
+                  "
                   >{{ field.name }}</span
                 >
                 <span
@@ -389,15 +508,19 @@
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <!-- presence bar -->
-                <span class="w-10 h-1 rounded bg-outline-variant/40 overflow-hidden" :title="`${Math.round(field.presence * 100)}% of sampled docs`">
+                <span
+                  class="w-10 h-1 rounded bg-outline-variant/40 overflow-hidden"
+                  :title="`${Math.round(field.presence * 100)}% of sampled docs`"
+                >
                   <span
                     class="block h-full bg-secondary/70"
                     :style="`width: ${Math.round(field.presence * 100)}%`"
                   />
                 </span>
-                <span class="font-mono text-[10px] text-on-surface-variant/60 w-20 text-right">{{
-                  field.type
-                }}</span>
+                <span
+                  class="font-mono text-[10px] text-on-surface-variant/60 w-20 text-right"
+                  >{{ field.type }}</span
+                >
               </div>
             </div>
           </div>
@@ -408,7 +531,9 @@
         class="h-full flex flex-col items-center justify-center text-on-surface-variant/40 gap-2"
       >
         <span class="material-symbols-outlined text-[40px]">schema</span>
-        <p class="text-body-sm">Run Map Schema to inspect sampled collection schemas</p>
+        <p class="text-body-sm">
+          Run Map Schema to inspect sampled collection schemas
+        </p>
       </div>
     </div>
   </div>
@@ -457,7 +582,9 @@ const dbOptions = computed(() =>
 const selectedDb = computed<Database | null>(
   () =>
     databaseStore.databases().find((d) => d.name === selectedDbName.value) ??
-    (selectedDbName.value ? ({ name: selectedDbName.value } as Database) : null),
+    (selectedDbName.value
+      ? ({ name: selectedDbName.value } as Database)
+      : null),
 );
 
 const allCollections = ref<string[]>([]);
@@ -618,7 +745,13 @@ const nodeHeight = (fieldCount: number) =>
 const applyLayout = () => {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "LR", nodesep: 70, ranksep: 160, marginx: 40, marginy: 40 });
+  g.setGraph({
+    rankdir: "LR",
+    nodesep: 70,
+    ranksep: 160,
+    marginx: 40,
+    marginy: 40,
+  });
   for (const node of nodes.value) {
     const coll = schema.value?.collections.find((c) => c.name === node.id);
     g.setNode(node.id, {
@@ -630,14 +763,18 @@ const applyLayout = () => {
   dagre.layout(g);
   nodes.value = nodes.value.map((node) => {
     const pos = g.node(node.id);
-    return { ...node, position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - pos.height / 2 } };
+    return {
+      ...node,
+      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - pos.height / 2 },
+    };
   });
   requestAnimationFrame(() => fitView({ padding: 0.2 }));
 };
 
 const mapSchema = async (verifyValues: boolean) => {
   const conn = connectionStore.active;
-  if (!conn || !selectedDb.value || selectedCollections.value.size === 0) return;
+  if (!conn || !selectedDb.value || selectedCollections.value.size === 0)
+    return;
   loading.value = true;
   error.value = null;
   closePanels();
@@ -698,13 +835,22 @@ const mapSchema = async (verifyValues: boolean) => {
         animated: rel.verified,
         data: rel,
         label: `$lookup (${rel.cardinality})`,
-        labelStyle: { fill: "#c7c4d7", fontSize: "9px", fontFamily: "'JetBrains Mono', monospace" },
+        labelStyle: {
+          fill: "#c7c4d7",
+          fontSize: "9px",
+          fontFamily: "'JetBrains Mono', monospace",
+        },
         labelBgStyle: { fill: "#171f33", stroke: "#2d3449" },
         labelBgPadding: [6, 3] as [number, number],
         labelBgBorderRadius: 6,
         style: rel.verified
           ? { stroke: "#c0c1ff", strokeWidth: 1.6 }
-          : { stroke: "#908fa0", strokeWidth: 1.2, strokeDasharray: "6 4", opacity: 0.7 },
+          : {
+              stroke: "#908fa0",
+              strokeWidth: 1.2,
+              strokeDasharray: "6 4",
+              opacity: 0.7,
+            },
       }));
 
     applyLayout();
