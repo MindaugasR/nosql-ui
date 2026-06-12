@@ -48,7 +48,7 @@
               title="Remove field"
               @click.stop="deleteField(row.node.path)"
             >
-              <span class="material-symbols-outlined text-[13px]">close</span>
+              <span class="material-symbols-outlined text-base!">close</span>
             </button>
             <span v-else-if="createMode" class="w-5 shrink-0" />
             <button

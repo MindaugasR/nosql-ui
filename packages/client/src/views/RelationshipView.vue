@@ -159,7 +159,7 @@
       <Transition name="rel-panel">
         <div
           v-if="selectedRel"
-          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100%_-_2rem)]"
+          class="absolute top-4 right-4 z-10 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col"
         >
           <div
             class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant shrink-0"
@@ -188,7 +188,9 @@
             </Button>
           </div>
 
-          <div class="p-4 flex flex-col gap-3 overflow-y-auto min-h-0">
+          <div
+            class="p-4 space-y-3 overflow-y-auto max-h-[calc(100vh_-_16rem)]"
+          >
             <!-- From → To -->
             <div class="flex flex-col gap-1">
               <p
@@ -330,7 +332,7 @@
       <Transition name="rel-panel">
         <div
           v-if="incomingFor && !selectedRel"
-          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100%_-_2rem)]"
+          class="absolute top-4 right-4 z-10 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden flex flex-col"
         >
           <div
             class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant shrink-0"
@@ -351,7 +353,7 @@
             </Button>
           </div>
 
-          <div class="overflow-y-auto py-1 min-h-0">
+          <div class="overflow-y-auto py-1 max-h-[calc(100vh_-_16rem)]">
             <button
               v-for="(rel, i) in incomingRels"
               :key="i"

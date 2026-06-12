@@ -1,7 +1,9 @@
 <template>
   <div
     class="w-70 bg-surface-container-low border rounded-xl shadow-xl overflow-hidden transition-shadow"
-    :class="selected ? 'border-primary shadow-primary/20' : 'border-outline-variant'"
+    :class="
+      selected ? 'border-primary shadow-primary/20' : 'border-outline-variant'
+    "
   >
     <!-- Header fallback target handle (only used when _id wasn't sampled) -->
     <Handle
@@ -17,8 +19,12 @@
       class="flex items-center justify-between px-3.5 py-2.5 bg-surface-container-high border-b border-outline-variant"
     >
       <div class="flex items-center gap-2 min-w-0">
-        <span class="material-symbols-outlined text-primary text-[16px]">table_chart</span>
-        <span class="text-body-sm font-semibold text-primary truncate">{{ data.collection.name }}</span>
+        <span class="material-symbols-outlined text-primary text-[16px]"
+          >table_chart</span
+        >
+        <span class="text-body-sm font-semibold text-primary truncate">{{
+          data.collection.name
+        }}</span>
       </div>
       <span
         v-if="data.collection.count != null"
@@ -50,8 +56,9 @@
             v-if="fkTargets[field.name]"
             class="text-[8px] px-1 py-px bg-amber-400/15 text-amber-300 rounded font-bold tracking-wider shrink-0"
             :title="`references ${fkTargets[field.name]}`"
-            >FK</span
           >
+            FK
+          </span>
           <!-- Incoming references badge: click lists who points here -->
           <button
             v-if="field.name === '_id' && (data.incomingCount ?? 0) > 0"
@@ -59,13 +66,15 @@
             :title="`${data.incomingCount} incoming reference${data.incomingCount === 1 ? '' : 's'} — click to list`"
             @click.stop="data.onShowIncoming?.()"
           >
-            <span class="material-symbols-outlined text-[10px]">south_west</span>
+            <span class="material-symbols-outlined text-[10px]!">
+              south_west
+            </span>
             {{ data.incomingCount }}
           </button>
         </div>
-        <span class="font-mono text-[10px] text-on-surface-variant/60 shrink-0">{{
-          field.type
-        }}</span>
+        <span class="font-mono text-[10px] text-on-surface-variant/60 shrink-0">
+          {{ field.type }}
+        </span>
 
         <!-- Source handle on FK rows: edges leave from the exact field -->
         <Handle
