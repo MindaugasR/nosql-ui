@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import rateLimit from '@fastify/rate-limit'
 import staticPlugin from '@fastify/static'
 import { mongoRoutes } from './routes/mongo.js'
 import { connectionsRoutes } from './routes/connections.js'
@@ -17,6 +18,13 @@ const app = Fastify({ logger: true })
 
 await app.register(cors, {
   origin: process.env.NODE_ENV === 'production' ? false : true,
+})
+
+// Generous global rate limit — this is a local tool, the limit only guards
+// against runaway request loops on the db-backed routes
+await app.register(rateLimit, {
+  max: 500,
+  timeWindow: '1 minute',
 })
 
 if (existsSync(publicDir)) {

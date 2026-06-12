@@ -216,3 +216,135 @@ export const logicalOps    = MONGO_OPS.filter(o => o.category === 'logical')
 export const elementOps    = MONGO_OPS.filter(o => o.category === 'element')
 export const arrayOps      = MONGO_OPS.filter(o => o.category === 'array')
 export const textOps       = MONGO_OPS.filter(o => o.category === 'text')
+
+// ── Shell methods (Query Editor autocomplete) ────────────────────────────────
+
+export interface ShellMethod {
+  label: string
+  detail: string
+  description: string
+  snippet: string
+  isWrite?: boolean
+}
+
+export const COLLECTION_METHODS: ShellMethod[] = [
+  {
+    label: 'find',
+    detail: 'query documents',
+    description: 'Selects documents matching the filter. Chain .sort/.limit/.skip/.project.',
+    snippet: 'find({ #{} })',
+  },
+  {
+    label: 'findOne',
+    detail: 'single document',
+    description: 'Returns the first document matching the filter, or null.',
+    snippet: 'findOne({ #{} })',
+  },
+  {
+    label: 'aggregate',
+    detail: 'aggregation pipeline',
+    description: 'Runs an aggregation pipeline — an array of stages like $match, $group, $lookup.',
+    snippet: 'aggregate([ { #{} } ])',
+  },
+  {
+    label: 'countDocuments',
+    detail: 'count matching',
+    description: 'Counts documents matching the filter (accurate, scans the collection).',
+    snippet: 'countDocuments({ #{} })',
+  },
+  {
+    label: 'estimatedDocumentCount',
+    detail: 'fast count',
+    description: 'Estimates the document count from collection metadata — fast but approximate.',
+    snippet: 'estimatedDocumentCount()',
+  },
+  {
+    label: 'distinct',
+    detail: 'unique values',
+    description: 'Returns the distinct values of a field, optionally filtered.',
+    snippet: 'distinct("#{field}")',
+  },
+  {
+    label: 'insertOne',
+    detail: 'insert document',
+    description: 'Inserts a single document into the collection.',
+    snippet: 'insertOne({ #{} })',
+    isWrite: true,
+  },
+  {
+    label: 'insertMany',
+    detail: 'insert documents',
+    description: 'Inserts an array of documents into the collection.',
+    snippet: 'insertMany([ { #{} } ])',
+    isWrite: true,
+  },
+  {
+    label: 'updateOne',
+    detail: 'update first match',
+    description: 'Updates the first document matching the filter using update operators like $set.',
+    snippet: 'updateOne({ #{filter} }, { $set: { #{} } })',
+    isWrite: true,
+  },
+  {
+    label: 'updateMany',
+    detail: 'update all matches',
+    description: 'Updates every document matching the filter using update operators like $set.',
+    snippet: 'updateMany({ #{filter} }, { $set: { #{} } })',
+    isWrite: true,
+  },
+  {
+    label: 'replaceOne',
+    detail: 'replace document',
+    description: 'Replaces the first document matching the filter with a whole new document.',
+    snippet: 'replaceOne({ #{filter} }, { #{} })',
+    isWrite: true,
+  },
+  {
+    label: 'deleteOne',
+    detail: 'delete first match',
+    description: 'Deletes the first document matching the filter.',
+    snippet: 'deleteOne({ #{} })',
+    isWrite: true,
+  },
+  {
+    label: 'deleteMany',
+    detail: 'delete all matches',
+    description: 'Deletes every document matching the filter. Use with care.',
+    snippet: 'deleteMany({ #{} })',
+    isWrite: true,
+  },
+  {
+    label: 'drop',
+    detail: 'drop collection',
+    description: 'Removes the entire collection, including all documents and indexes.',
+    snippet: 'drop()',
+    isWrite: true,
+  },
+]
+
+export const CURSOR_CHAIN_METHODS: ShellMethod[] = [
+  {
+    label: 'sort',
+    detail: 'order results',
+    description: 'Sorts results: 1 ascending, -1 descending — e.g. .sort({ createdAt: -1 }).',
+    snippet: 'sort({ #{field}: -1 })',
+  },
+  {
+    label: 'limit',
+    detail: 'cap result count',
+    description: 'Limits the number of returned documents.',
+    snippet: 'limit(#{20})',
+  },
+  {
+    label: 'skip',
+    detail: 'skip documents',
+    description: 'Skips the first N documents — combine with .limit() for paging.',
+    snippet: 'skip(#{0})',
+  },
+  {
+    label: 'project',
+    detail: 'select fields',
+    description: 'Includes (1) or excludes (0) fields from the returned documents.',
+    snippet: 'project({ #{field}: 1 })',
+  },
+]
