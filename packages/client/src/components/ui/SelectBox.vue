@@ -138,7 +138,7 @@ const onSearchKeydown = (e: KeyboardEvent) => {
       <span class="truncate">{{ currentLabel }}</span>
       <span
         v-if="!disabled"
-        class="material-symbols-outlined text-[11px] shrink-0 opacity-40"
+        class="material-symbols-outlined text-[11px]! shrink-0 opacity-40"
         >unfold_more</span
       >
     </button>

@@ -181,6 +181,19 @@ export const useCollectionStore = defineStore("collection-store", {
       });
     },
 
+    // Fetch only when this connection+db hasn't been loaded yet — otherwise
+    // reuse what's already in the store (e.g. loaded by the Collections page)
+    async ensureCollections(connection: Connection, database?: Database) {
+      const databaseStore = useDatabaseStore();
+      const db = database ?? databaseStore.database();
+      if (!connection || !db) return;
+      // __key derives from the current selection — sync it first so the
+      // cache check and fetchCollections storage use the right key
+      databaseStore.setDatabase(connection, db);
+      if (this.loaded.get(this.__key)) return;
+      await this.fetchCollections(connection, db);
+    },
+
     async fetchCollections(connection: Connection, database?: Database) {
       const databaseStore = useDatabaseStore();
 

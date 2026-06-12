@@ -130,6 +130,7 @@ const navItems = [
   { label: "Dashboard", icon: "dashboard", to: "/dashboard" },
   { label: "Collections", icon: "table_chart", to: "/collections" },
   { label: "Query Editor", icon: "terminal", to: "/query" },
+  { label: "Relationships", icon: "account_tree", to: "/relationships" },
 ];
 const footerItems = [{ label: "Settings", icon: "settings", to: "/settings" }];
 

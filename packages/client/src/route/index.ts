@@ -8,6 +8,7 @@ import CollectionsView from "@/views/CollectionsView.vue";
 import DataBrowserView from "@/views/DataBrowserView.vue";
 import AggregationView from "@/views/AggregationView.vue";
 import ConnectView from "@/views/ConnectView.vue";
+import RelationshipView from "@/views/RelationshipView.vue";
 import QueryEditorView from "@/views/QueryEditorView.vue";
 
 export enum ROUTE_NAME {
@@ -17,6 +18,7 @@ export enum ROUTE_NAME {
   DOCUMENTS = "documents",
   AGGREGATION = "aggregation",
   COLLECTIONS_LIST = "collections-list",
+  RELATIONSHIPS = "relationships",
   QUERY = "query",
 }
 
@@ -46,6 +48,11 @@ export const router = createRouter({
           path: "/query",
           name: ROUTE_NAME.QUERY,
           component: QueryEditorView,
+        },
+        {
+          path: "/relationships",
+          name: ROUTE_NAME.RELATIONSHIPS,
+          component: RelationshipView,
         },
         {
           path: "/collections",
