@@ -146,7 +146,7 @@
       <Transition name="rel-panel">
         <div
           v-if="selectedRel"
-          class="absolute top-4 right-4 w-80 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden"
+          class="absolute top-4 right-4 w-88 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden"
         >
           <div
             class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant"
@@ -162,16 +162,30 @@
 
           <div class="p-4 flex flex-col gap-3">
             <!-- From → To -->
-            <div class="flex items-center gap-2 font-mono text-[12px]">
-              <span class="px-2 py-1 bg-amber-400/10 text-amber-300 rounded border border-amber-400/20 truncate">
-                {{ selectedRel.sourceCollection }}.{{ selectedRel.sourceField }}
-              </span>
-              <span class="material-symbols-outlined text-on-surface-variant text-[14px] shrink-0"
-                >arrow_forward</span
+            <div class="flex flex-col gap-1">
+              <p class="text-[9px] uppercase tracking-wider text-on-surface-variant/70 font-semibold">
+                From — referencing field
+              </p>
+              <div
+                class="w-full px-3 py-2 bg-amber-400/10 rounded-lg border border-amber-400/20 font-mono text-[13px] break-all leading-snug"
               >
-              <span class="px-2 py-1 bg-primary/10 text-primary rounded border border-primary/20 truncate">
-                {{ selectedRel.targetCollection }}._id
-              </span>
+                <span class="text-amber-300/60">{{ selectedRel.sourceCollection }}.</span><span class="text-amber-300 font-semibold">{{ selectedRel.sourceField }}</span>
+              </div>
+
+              <div class="flex justify-center -my-0.5">
+                <span class="material-symbols-outlined text-on-surface-variant/50 text-[16px]"
+                  >south</span
+                >
+              </div>
+
+              <p class="text-[9px] uppercase tracking-wider text-on-surface-variant/70 font-semibold">
+                To — referenced collection
+              </p>
+              <div
+                class="w-full px-3 py-2 bg-primary/10 rounded-lg border border-primary/20 font-mono text-[13px] break-all leading-snug"
+              >
+                <span class="text-primary font-semibold">{{ selectedRel.targetCollection }}</span><span class="text-primary/60">._id</span>
+              </div>
             </div>
 
             <!-- Badges -->
