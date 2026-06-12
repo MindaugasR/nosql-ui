@@ -269,6 +269,7 @@ import { api } from "@/lib/api";
 import type { SchemaMapResponse } from "@/lib/api";
 import { useConnectionsStore } from "@/stores/connections";
 import { useDatabaseStore } from "@/stores/useDatabaseStore";
+import { useCollectionStore } from "@/stores/useCollectionStore";
 import type { Database } from "@/types";
 import CollectionNode from "@/components/relationship/CollectionNode.vue";
 import SelectBox from "@/components/ui/SelectBox.vue";
@@ -277,6 +278,7 @@ import Checkbox from "@/components/ui/Checkbox.vue";
 
 const connectionStore = useConnectionsStore();
 const databaseStore = useDatabaseStore();
+const collectionStore = useCollectionStore();
 const { zoomIn, zoomOut, fitView } = useVueFlow();
 
 // Vue Flow's NodeTypesObject typing doesn't accept typed SFC components directly
@@ -323,9 +325,18 @@ watch(selectedDbName, async (dbName) => {
   edges.value = [];
   const conn = connectionStore.active;
   if (!conn || !dbName) return;
+  const db =
+    databaseStore.databases().find((d) => d.name === dbName) ??
+    ({ name: dbName } as Database);
+  // Sync the app-wide selection so collectionStore keys resolve, then reuse
+  // collections already loaded elsewhere (e.g. the Collections page)
+  databaseStore.setDatabase(conn, db);
   try {
-    const res = await api.stats.collections(conn, dbName);
-    allCollections.value = res.collections.map((c) => c.name).sort();
+    await collectionStore.ensureCollections(conn, db);
+    allCollections.value = collectionStore
+      .collections()
+      .map((c) => c.name)
+      .sort();
     selectedCollections.value = new Set(allCollections.value);
   } catch (err: any) {
     error.value = err.message ?? "Failed to load collections";
