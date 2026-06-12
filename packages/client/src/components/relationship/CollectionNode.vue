@@ -3,12 +3,13 @@
     class="w-70 bg-surface-container-low border rounded-xl shadow-xl overflow-hidden transition-shadow"
     :class="selected ? 'border-primary shadow-primary/20' : 'border-outline-variant'"
   >
-    <!-- Target handle: edges land on the card header -->
+    <!-- Header fallback target handle (only used when _id wasn't sampled) -->
     <Handle
       id="self"
       type="target"
       :position="Position.Left"
       class="rel-handle rel-handle--target"
+      :style="{ opacity: hasIdField ? 0 : 1 }"
     />
 
     <!-- Header -->
@@ -64,6 +65,15 @@
           :position="Position.Right"
           class="rel-handle rel-handle--source"
         />
+
+        <!-- Target handle on the _id row: incoming references land here -->
+        <Handle
+          v-if="field.name === '_id'"
+          id="_id"
+          type="target"
+          :position="Position.Left"
+          class="rel-handle rel-handle--target-row"
+        />
       </div>
 
       <p
@@ -94,16 +104,20 @@ const fkTargets = computed(() => props.data.fkTargets);
 
 const MAX_FIELDS = 12;
 
-// FK fields always visible, then _id, then the rest by sample presence
+// _id pinned on top (incoming edges land on it), then FK fields, then the rest
 const visibleFields = computed(() => {
   const fields = [...props.data.collection.fields];
   fields.sort((a, b) => {
     const rank = (f: typeof a) =>
-      fkTargets.value[f.name] ? 0 : f.name === "_id" ? 1 : 2;
+      f.name === "_id" ? 0 : fkTargets.value[f.name] ? 1 : 2;
     return rank(a) - rank(b) || b.presence - a.presence;
   });
   return fields.slice(0, MAX_FIELDS);
 });
+
+const hasIdField = computed(() =>
+  props.data.collection.fields.some((f) => f.name === "_id"),
+);
 
 const hiddenCount = computed(() =>
   Math.max(props.data.collection.fields.length - MAX_FIELDS, 0),
@@ -126,6 +140,12 @@ const formatCount = (n: number): string => {
 .rel-handle--target {
   top: 21px;
   left: -5px;
+}
+.rel-handle--target-row {
+  position: absolute;
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .rel-handle--source {
   position: absolute;

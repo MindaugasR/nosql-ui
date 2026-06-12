@@ -136,9 +136,101 @@
         :max-zoom="2.5"
         fit-view-on-init
         class="rel-flow"
+        @edge-click="onEdgeClick"
+        @pane-click="selectedRel = null"
       >
         <Background pattern-color="#2d3449" :gap="22" :size="1.6" />
       </VueFlow>
+
+      <!-- Relationship details panel -->
+      <Transition name="rel-panel">
+        <div
+          v-if="selectedRel"
+          class="absolute top-4 right-4 w-80 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl overflow-hidden"
+        >
+          <div
+            class="flex items-center justify-between px-4 py-2.5 bg-surface-container-high border-b border-outline-variant"
+          >
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-[16px]">link</span>
+              <span class="text-body-sm font-semibold text-on-surface">Relationship</span>
+            </div>
+            <Button variant="icon" class="w-6 h-6" @click="selectedRel = null">
+              <span class="material-symbols-outlined text-[16px]">close</span>
+            </Button>
+          </div>
+
+          <div class="p-4 flex flex-col gap-3">
+            <!-- From → To -->
+            <div class="flex items-center gap-2 font-mono text-[12px]">
+              <span class="px-2 py-1 bg-amber-400/10 text-amber-300 rounded border border-amber-400/20 truncate">
+                {{ selectedRel.sourceCollection }}.{{ selectedRel.sourceField }}
+              </span>
+              <span class="material-symbols-outlined text-on-surface-variant text-[14px] shrink-0"
+                >arrow_forward</span
+              >
+              <span class="px-2 py-1 bg-primary/10 text-primary rounded border border-primary/20 truncate">
+                {{ selectedRel.targetCollection }}._id
+              </span>
+            </div>
+
+            <!-- Badges -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded border border-primary/20 font-medium">
+                {{ selectedRel.cardinality }}
+              </span>
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                :class="
+                  selectedRel.confidence === 'high'
+                    ? 'bg-secondary/10 text-secondary border border-secondary/20'
+                    : 'bg-amber-400/10 text-amber-300 border border-amber-400/20'
+                "
+              >
+                {{ selectedRel.confidence }} confidence
+              </span>
+              <span
+                v-if="selectedRel.verified"
+                class="text-[10px] px-1.5 py-0.5 bg-secondary/10 text-secondary rounded border border-secondary/20 font-medium flex items-center gap-0.5"
+              >
+                <span class="material-symbols-outlined text-[11px]">check</span>
+                value-verified
+              </span>
+              <span
+                v-else
+                class="text-[10px] px-1.5 py-0.5 bg-surface-variant text-on-surface-variant rounded font-medium"
+                >name-based guess</span
+              >
+            </div>
+
+            <p class="text-[11px] text-on-surface-variant leading-relaxed">
+              <template v-if="selectedRel.cardinality === 'N:M'">
+                Each <span class="font-mono text-on-surface">{{ selectedRel.sourceCollection }}</span> document holds an
+                <span class="font-mono text-on-surface">array</span> of ids referencing
+                <span class="font-mono text-on-surface">{{ selectedRel.targetCollection }}</span> documents.
+              </template>
+              <template v-else>
+                Each <span class="font-mono text-on-surface">{{ selectedRel.sourceCollection }}</span> document references one
+                <span class="font-mono text-on-surface">{{ selectedRel.targetCollection }}</span> document — one
+                <span class="font-mono text-on-surface">{{ selectedRel.targetCollection }}</span> can be referenced by many.
+              </template>
+            </p>
+
+            <!-- $lookup snippet -->
+            <div class="bg-surface-container border border-outline-variant rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-3 py-1.5 border-b border-outline-variant/50">
+                <span class="text-[10px] uppercase tracking-wider text-on-surface-variant font-semibold">$lookup</span>
+                <Button variant="icon" class="w-6 h-6" :title="copied ? 'Copied!' : 'Copy'" @click="copyLookup">
+                  <span class="material-symbols-outlined text-[14px]" :class="copied ? 'text-secondary' : ''">
+                    {{ copied ? "check" : "content_copy" }}
+                  </span>
+                </Button>
+              </div>
+              <pre class="px-3 py-2 font-mono text-[10px] text-secondary whitespace-pre-wrap leading-relaxed">{{ lookupSnippet }}</pre>
+            </div>
+          </div>
+        </div>
+      </Transition>
 
       <!-- Empty state -->
       <div
@@ -266,7 +358,7 @@ import {
 import { Background } from "@vue-flow/background";
 import dagre from "@dagrejs/dagre";
 import { api } from "@/lib/api";
-import type { SchemaMapResponse } from "@/lib/api";
+import type { SchemaMapResponse, SchemaRelationship } from "@/lib/api";
 import { useConnectionsStore } from "@/stores/connections";
 import { useDatabaseStore } from "@/stores/useDatabaseStore";
 import { useCollectionStore } from "@/stores/useCollectionStore";
@@ -384,6 +476,41 @@ const schema = ref<SchemaMapResponse | null>(null);
 const nodes = ref<Node[]>([]);
 const edges = ref<Edge[]>([]);
 
+// ── Relationship details panel ────────────────────────────────────────────────
+
+const selectedRel = ref<SchemaRelationship | null>(null);
+const copied = ref(false);
+
+const onEdgeClick = ({ edge }: { edge: Edge }) => {
+  selectedRel.value = (edge.data as SchemaRelationship) ?? null;
+  copied.value = false;
+};
+
+const lookupSnippet = computed(() => {
+  const rel = selectedRel.value;
+  if (!rel) return "";
+  return [
+    "{",
+    "  $lookup: {",
+    `    from: "${rel.targetCollection}",`,
+    `    localField: "${rel.sourceField}",`,
+    '    foreignField: "_id",',
+    `    as: "${rel.sourceField}_docs"`,
+    "  }",
+    "}",
+  ].join("\n");
+});
+
+const copyLookup = async () => {
+  try {
+    await navigator.clipboard.writeText(lookupSnippet.value);
+    copied.value = true;
+    setTimeout(() => (copied.value = false), 1500);
+  } catch {
+    /* clipboard unavailable */
+  }
+};
+
 // collection → field → target collection (for FK badges)
 const fkMap = computed<Record<string, Record<string, string>>>(() => {
   const map: Record<string, Record<string, string>> = {};
@@ -422,6 +549,7 @@ const mapSchema = async (verifyValues: boolean) => {
   if (!conn || !selectedDb.value || selectedCollections.value.size === 0) return;
   loading.value = true;
   error.value = null;
+  selectedRel.value = null;
   try {
     const res = await api.data.schemaMap(conn, selectedDb.value, {
       collections: [...selectedCollections.value],
@@ -455,9 +583,15 @@ const mapSchema = async (verifyValues: boolean) => {
         source: rel.sourceCollection,
         sourceHandle: rel.sourceField,
         target: rel.targetCollection,
-        targetHandle: "self",
+        // Land on the target's _id row so it's obvious what is referenced
+        targetHandle: res.collections
+          .find((c) => c.name === rel.targetCollection)
+          ?.fields.some((f) => f.name === "_id")
+          ? "_id"
+          : "self",
         type: "smoothstep",
         animated: rel.verified,
+        data: rel,
         label: `$lookup (${rel.cardinality})`,
         labelStyle: { fill: "#c7c4d7", fontSize: "9px", fontFamily: "'JetBrains Mono', monospace" },
         labelBgStyle: { fill: "#171f33", stroke: "#2d3449" },
@@ -489,5 +623,24 @@ const mapSchema = async (verifyValues: boolean) => {
 }
 .rel-flow .vue-flow__handle {
   border-radius: 9999px;
+}
+.rel-flow .vue-flow__edge {
+  cursor: pointer;
+}
+.rel-flow .vue-flow__edge.selected path.vue-flow__edge-path {
+  stroke: #89ceff;
+  stroke-width: 2.4;
+}
+
+.rel-panel-enter-active,
+.rel-panel-leave-active {
+  transition:
+    transform 0.18s ease,
+    opacity 0.15s ease;
+}
+.rel-panel-enter-from,
+.rel-panel-leave-to {
+  transform: translateX(12px);
+  opacity: 0;
 }
 </style>
